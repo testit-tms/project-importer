@@ -182,8 +182,8 @@ public class ClientAdapterTests
             description: string.Empty,
             name: projectName,
             isFavorite: false,
-            attributesScheme: new List<CustomAttributeApiResult>(),
-            testPlansAttributesScheme: new List<CustomAttributeApiResult>(),
+            attributesScheme: new List<CustomAttributeModel>(),
+            testPlansAttributesScheme: new List<CustomAttributeModel>(),
             testCasesCount: 0,
             sharedStepsCount: 0,
             checkListsCount: 0,
@@ -194,7 +194,7 @@ public class ClientAdapterTests
             createdById: createdById,
             modifiedById: null,
             globalId: 1,
-            type: new ProjectType());
+            type: new ProjectTypeModel());
 
         _projectsApi.CreateProjectAsync(Arg.Any<CreateProjectApiModel>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(projectModel));

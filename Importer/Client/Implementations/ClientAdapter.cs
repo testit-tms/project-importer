@@ -222,11 +222,11 @@ public class ClientAdapter(
                 tags: new List<TagModel>(),
                 name: sharedStep.Name)
             {
-                EntityTypeName = WorkItemEntityTypeApiModel.SharedSteps,
+                EntityTypeName = WorkItemEntityTypes.SharedSteps,
                 Description = sharedStep.Description,
                 SectionId = parentSectionId,
-                State = Enum.Parse<WorkItemStateApiModel>(sharedStep.State.ToString()),
-                Priority = Enum.Parse<WorkItemPriorityApiModel>(sharedStep.Priority.ToString()),
+                State = Enum.Parse<WorkItemStates>(sharedStep.State.ToString()),
+                Priority = Enum.Parse<WorkItemPriorityModel>(sharedStep.Priority.ToString()),
                 Steps = sharedStep.Steps.Select(s =>
                     new CreateStepApiModel
                     {
@@ -251,7 +251,7 @@ public class ClientAdapter(
 
             logger.LogDebug("Importing shared step {Name} and {@Model}", sharedStep.Name, model);
 
-            var resp = await workItemsApi.ApiV2WorkItemsPostAsync(model);
+            var resp = await workItemsApi.CreateWorkItemAsync(model);
 
             logger.LogDebug("Imported shared step {@SharedStep}", resp);
 
@@ -315,10 +315,10 @@ public class ClientAdapter(
                 tags: new List<TagModel>(),
                 name: testCase.Name)
             {
-                EntityTypeName = WorkItemEntityTypeApiModel.TestCases,
+                EntityTypeName = WorkItemEntityTypes.TestCases,
                 SectionId = parentSectionId,
-                State = Enum.Parse<WorkItemStateApiModel>(testCase.State.ToString()),
-                Priority = Enum.Parse<WorkItemPriorityApiModel>(testCase.Priority.ToString()),
+                State = Enum.Parse<WorkItemStates>(testCase.State.ToString()),
+                Priority = Enum.Parse<WorkItemPriorityModel>(testCase.Priority.ToString()),
                 PreconditionSteps = testCase.PreconditionSteps.Select(s =>
                     new CreateStepApiModel
                     {
@@ -363,7 +363,7 @@ public class ClientAdapter(
             logger.LogDebug("Importing test case {Name} and {@Model}", testCase.Name, model);
 
             var response = await adapterHelper.RetryCaller(
-                async () => await workItemsApi.ApiV2WorkItemsPostAsync(model));
+                async () => await workItemsApi.CreateWorkItemAsync(model));
 
             logger.LogDebug("Imported test case {@TestCase}", response);
 
