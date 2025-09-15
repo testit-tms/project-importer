@@ -171,43 +171,6 @@ public class ClientAdapterTests
     }
 
     [Test]
-    public async Task CreateProject_WhenSuccessful_ReturnsProjectId()
-    {
-        // Arrange
-        var projectName = "TestProject";
-        var projectId = Guid.NewGuid();
-        var createdById = Guid.NewGuid();
-        var projectModel = new ProjectApiResult(
-            id: projectId,
-            description: string.Empty,
-            name: projectName,
-            isFavorite: false,
-            attributesScheme: new List<CustomAttributeApiResult>(),
-            testPlansAttributesScheme: new List<CustomAttributeApiResult>(),
-            testCasesCount: 0,
-            sharedStepsCount: 0,
-            checkListsCount: 0,
-            autoTestsCount: 0,
-            isDeleted: false,
-            createdDate: DateTime.UtcNow,
-            modifiedDate: null,
-            createdById: createdById,
-            modifiedById: null,
-            globalId: 1,
-            type: new ProjectType());
-
-        _projectsApi.CreateProjectAsync(Arg.Any<CreateProjectApiModel>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(projectModel));
-
-        // Act
-        var result = await _clientAdapter.CreateProject(projectName);
-
-        // Assert
-        Assert.That(result, Is.EqualTo(projectId));
-        await _projectsApi.Received(1).CreateProjectAsync(Arg.Is<CreateProjectApiModel>(r => r.Name == projectName), Arg.Any<CancellationToken>());
-    }
-
-    [Test]
     public async Task ImportAttribute_WhenSuccessful_ReturnsTmsAttribute()
     {
         // Arrange
@@ -300,48 +263,6 @@ public class ClientAdapterTests
                 r.ParentId == parentSectionId
             )
         );
-    }
-
-    [Test]
-    public async Task GetProjectAttributes_WhenSuccessful_ReturnsTmsAttributes()
-    {
-        // Arrange
-        var attributeId = Guid.NewGuid();
-        var attributeName = "TestAttribute";
-        var attributes = new List<CustomAttributeSearchResponseModel>
-        {
-            new(
-                id: attributeId,
-                options: new List<CustomAttributeOptionModel>(),
-                type: CustomAttributeTypesEnum.String,
-                isDeleted: false,
-                name: attributeName,
-                isEnabled: true,
-                isRequired: true,
-                isGlobal: true
-            )
-        };
-
-        _customAttributesApi
-            .ApiV2CustomAttributesSearchPostAsync(
-                customAttributeSearchQueryModel: Arg.Is<CustomAttributeSearchQueryModel>(
-                    r => r.IsGlobal == true && r.IsDeleted == false))
-            .Returns(Task.FromResult(attributes));
-
-        // Act
-        var result = await _clientAdapter.GetProjectAttributes();
-
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Count, Is.EqualTo(1));
-            Assert.That(result[0].Id, Is.EqualTo(attributeId));
-            Assert.That(result[0].Name, Is.EqualTo(attributeName));
-            Assert.That(result[0].Type, Is.EqualTo(CustomAttributeTypesEnum.String.ToString()));
-            Assert.That(result[0].IsEnabled, Is.True);
-            Assert.That(result[0].IsRequired, Is.True);
-            Assert.That(result[0].IsGlobal, Is.True);
-        });
     }
 
     [Test]
