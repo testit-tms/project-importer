@@ -1,0 +1,10 @@
+{
+  "resultPath": "C:/Users/user1/export",
+  "tms": {
+    "url": "https://team-xxxx.testit.software",
+    "privateToken": "XXXX",
+    "certValidation": true,
+    "importToExistingProject": false,
+    "timeout": 600
+  }
+}
