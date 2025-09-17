@@ -8,7 +8,7 @@ You can use this Importer to import your test cases to Test IT.
 |---------|------------------|
 | 5.3     | 2.2.0-TMS-5.3    | 
 | 5.4     | 2.2.0-TMS-5.4.1  |
-| Cloud   | 2.2.0+           |
+| Cloud   | 2.2.1           |
 
 Note: you can find versions for TMS before 5.3 release [there](https://github.com/testit-tms/migrators/tags?after=2.0.0-TMS-5.3)
 
