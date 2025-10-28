@@ -526,7 +526,7 @@ public class ClientAdapter(
 
         try
         {
-            await projectsApi.AddGlobaAttributesToProjectAsync(projectId.ToString(),
+            await projectsApi.AddGlobalAttributesToProjectAsync(projectId.ToString(),
                 attributeIds.ToList());
         }
         catch (Exception e)
