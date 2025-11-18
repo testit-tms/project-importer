@@ -1,0 +1,52 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore ./ImporterTests
+
+      - name: Tests
+        run: |
+          dotnet test ./ImporterTests --collect:"XPlat Code Coverage" --results-directory ./coverage-reports/ \
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover \
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[**/obj/**]*,[**/bin/**]*,[**/NuGet/**]*,[**/packages/**]*"
+
+      - name: Install ReportGenerator
+        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+
+      - name: Convert OpenCover to LCOV format
+        run: |
+          REPORTS=$(find ./coverage-reports -name "coverage.opencover.xml" -type f | tr '\n' ';')
+          if [ -n "$REPORTS" ]; then
+            reportgenerator -reports:"$REPORTS" -targetdir:./coverage-lcov -reporttypes:LCOV \
+            -filefilters:"-**/obj/**" \
+            -filefilters:"-**/bin/**" \
+            -filefilters:"-**/NuGet/**" \
+            -filefilters:"-**/packages/**"
+          fi
+
+      - name: Upload coverage to Coveralls
+        if: always()
+        uses: coverallsapp/github-action@v2
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: ./coverage-lcov/lcov.info
+          flag-name: ImporterTests
+          parallel: false

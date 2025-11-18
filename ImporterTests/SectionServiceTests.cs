@@ -1,102 +1,83 @@
-using Microsoft.Extensions.Logging;
 using Importer.Client;
 using Importer.Services.Implementations;
-using Models;
-using NSubstitute;
+using Microsoft.Extensions.Logging;
 
 namespace ImporterTests;
 
+[TestFixture]
 public class SectionServiceTests
 {
-    private ILogger<SectionService> _logger = null!;
-    private IClientAdapter _clientAdapter = null!;
+    private Mock<ILogger<SectionService>> _loggerMock = null!;
+    private Mock<IClientAdapter> _clientAdapterMock = null!;
     private SectionService _sectionService = null!;
 
-    private static readonly Guid ProjectId = Guid.Parse("8e2b4dc4-f6c3-472f-a58f-d57b968bbee7");
-    private static readonly Guid RootSectionId = Guid.Parse("9f3c5ed5-d7d4-483f-b69f-e68c079cffe8");
+    private Guid _projectId;
+    private Guid _rootSectionId;
 
     [SetUp]
-    public void Setup()
+    public void SetUp()
     {
-        _logger = Substitute.For<ILogger<SectionService>>();
-        _clientAdapter = Substitute.For<IClientAdapter>();
-        _sectionService = new SectionService(_logger, _clientAdapter);
+        _loggerMock = new Mock<ILogger<SectionService>>();
+        _clientAdapterMock = new Mock<IClientAdapter>();
+        _sectionService = new SectionService(_loggerMock.Object, _clientAdapterMock.Object);
 
-        // Setup get root section
-        _clientAdapter.GetRootSectionId(ProjectId).Returns(RootSectionId);
+        _projectId = Guid.NewGuid();
+        _rootSectionId = Guid.NewGuid();
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetRootSectionId(_projectId))
+            .ReturnsAsync(_rootSectionId);
     }
 
     [Test]
-    public async Task ImportSections_WhenNoSections_ReturnsEmptyDictionary()
+    public async Task ImportSections_WhenNoSections_ReturnsEmptyMap()
     {
+        // Arrange
+        var sections = Array.Empty<Section>();
+
         // Act
-        var result = await _sectionService.ImportSections(ProjectId, Array.Empty<Section>());
+        var result = await _sectionService.ImportSections(_projectId, sections);
 
         // Assert
-        Assert.Multiple(async () =>
+        Assert.Multiple(() =>
         {
             Assert.That(result, Is.Empty);
-            await _clientAdapter.Received(1).GetRootSectionId(ProjectId);
-            await _clientAdapter.DidNotReceive().ImportSection(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Section>());
+            _clientAdapterMock.Verify(adapter => adapter.GetRootSectionId(_projectId), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.ImportSection(It.IsAny<Guid>(), It.IsAny<Guid>(),
+                It.IsAny<Section>()), Times.Never);
+            _loggerMock.VerifyLogging("Importing sections", LogLevel.Information, Times.Once());
         });
     }
 
     [Test]
-    public async Task ImportSections_WhenSingleSection_ReturnsMapping()
+    public async Task ImportSections_WithSingleSection_ReturnsCorrectMapping()
     {
         // Arrange
-        var sectionId = Guid.NewGuid();
+        var section = new Section
+        {
+            Id = Guid.NewGuid(),
+            Name = "Single"
+        };
         var newSectionId = Guid.NewGuid();
-        var section = new Section { Id = sectionId, Name = "Test Section" };
 
-        _clientAdapter.ImportSection(ProjectId, RootSectionId, section).Returns(newSectionId);
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportSection(_projectId, _rootSectionId, section))
+            .ReturnsAsync(newSectionId);
 
         // Act
-        var result = await _sectionService.ImportSections(ProjectId, new[] { section });
+        var result = await _sectionService.ImportSections(_projectId, new[] { section });
 
         // Assert
-        Assert.Multiple(async () =>
+        Assert.Multiple(() =>
         {
             Assert.That(result, Has.Count.EqualTo(1));
-            Assert.That(result[sectionId], Is.EqualTo(newSectionId));
-            await _clientAdapter.Received(1).GetRootSectionId(ProjectId);
-            await _clientAdapter.Received(1).ImportSection(ProjectId, RootSectionId, section);
-        });
-    }
+            Assert.That(result[section.Id], Is.EqualTo(newSectionId));
 
-    [Test]
-    public async Task ImportSections_WhenNestedSections_ReturnsCorrectMapping()
-    {
-        // Arrange
-        var parentSectionId = Guid.NewGuid();
-        var childSectionId = Guid.NewGuid();
-        var newParentSectionId = Guid.NewGuid();
-        var newChildSectionId = Guid.NewGuid();
+            _clientAdapterMock.Verify(adapter => adapter.GetRootSectionId(_projectId), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.ImportSection(_projectId, _rootSectionId, section), Times.Once);
 
-        var childSection = new Section { Id = childSectionId, Name = "Child Section" };
-        var parentSection = new Section
-        {
-            Id = parentSectionId,
-            Name = "Parent Section",
-            Sections = new List<Section> { childSection }
-        };
-
-        _clientAdapter.ImportSection(ProjectId, RootSectionId, parentSection).Returns(newParentSectionId);
-        _clientAdapter.ImportSection(ProjectId, newParentSectionId, childSection).Returns(newChildSectionId);
-
-        // Act
-        var result = await _sectionService.ImportSections(ProjectId, new[] { parentSection });
-
-        // Assert
-        Assert.Multiple(async () =>
-        {
-            Assert.That(result, Has.Count.EqualTo(2));
-            Assert.That(result[parentSectionId], Is.EqualTo(newParentSectionId));
-            Assert.That(result[childSectionId], Is.EqualTo(newChildSectionId));
-
-            await _clientAdapter.Received(1).GetRootSectionId(ProjectId);
-            await _clientAdapter.Received(1).ImportSection(ProjectId, RootSectionId, parentSection);
-            await _clientAdapter.Received(1).ImportSection(ProjectId, newParentSectionId, childSection);
+            _loggerMock.VerifyLogging("Importing sections", LogLevel.Information, Times.Once());
+            _loggerMock.VerifyLoggingCalls(LogLevel.Debug, 2);
         });
     }
 
@@ -104,30 +85,223 @@ public class SectionServiceTests
     public async Task ImportSections_WhenMultipleSections_ImportsAllSections()
     {
         // Arrange
-        var section1Id = Guid.NewGuid();
-        var section2Id = Guid.NewGuid();
+        var firstSection = new Section { Id = Guid.NewGuid(), Name = "Section 1" };
+        var secondSection = new Section { Id = Guid.NewGuid(), Name = "Section 2" };
+
         var newSection1Id = Guid.NewGuid();
         var newSection2Id = Guid.NewGuid();
 
-        var section1 = new Section { Id = section1Id, Name = "Section 1" };
-        var section2 = new Section { Id = section2Id, Name = "Section 2" };
-
-        _clientAdapter.ImportSection(ProjectId, RootSectionId, section1).Returns(newSection1Id);
-        _clientAdapter.ImportSection(ProjectId, RootSectionId, section2).Returns(newSection2Id);
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportSection(_projectId, _rootSectionId, firstSection))
+            .ReturnsAsync(newSection1Id);
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportSection(_projectId, _rootSectionId, secondSection))
+            .ReturnsAsync(newSection2Id);
 
         // Act
-        var result = await _sectionService.ImportSections(ProjectId, new[] { section1, section2 });
+        var result = await _sectionService.ImportSections(_projectId, new[] { firstSection, secondSection });
 
         // Assert
-        Assert.Multiple(async () =>
+        Assert.Multiple(() =>
         {
             Assert.That(result, Has.Count.EqualTo(2));
-            Assert.That(result[section1Id], Is.EqualTo(newSection1Id));
-            Assert.That(result[section2Id], Is.EqualTo(newSection2Id));
+            Assert.That(result[firstSection.Id], Is.EqualTo(newSection1Id));
+            Assert.That(result[secondSection.Id], Is.EqualTo(newSection2Id));
 
-            await _clientAdapter.Received(1).GetRootSectionId(ProjectId);
-            await _clientAdapter.Received(1).ImportSection(ProjectId, RootSectionId, section1);
-            await _clientAdapter.Received(1).ImportSection(ProjectId, RootSectionId, section2);
+            _clientAdapterMock.Verify(adapter => adapter.GetRootSectionId(_projectId), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.ImportSection(_projectId, _rootSectionId, firstSection),
+                Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.ImportSection(_projectId, _rootSectionId, secondSection),
+                Times.Once);
+
+            _loggerMock.VerifyLogging("Importing sections", LogLevel.Information, Times.Once());
+            _loggerMock.VerifyLoggingCalls(LogLevel.Debug, 4);
+        });
+    }
+
+    [Test]
+    public async Task ImportSections_WithNestedSections_ReturnsCorrectMapping()
+    {
+        // Arrange
+        var childSection = new Section
+        {
+            Id = Guid.NewGuid(),
+            Name = "Child",
+            Sections = new List<Section>()
+        };
+
+        var parentSection = new Section
+        {
+            Id = Guid.NewGuid(),
+            Name = "Parent",
+            Sections = new List<Section> { childSection }
+        };
+
+
+        var newParentSectionId = Guid.NewGuid();
+        var newChildSectionId = Guid.NewGuid();
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportSection(_projectId, _rootSectionId, parentSection))
+            .ReturnsAsync(newParentSectionId);
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportSection(_projectId, newParentSectionId, childSection))
+            .ReturnsAsync(newChildSectionId);
+
+        // Act
+        var result = await _sectionService.ImportSections(_projectId, new[] { parentSection });
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Has.Count.EqualTo(2));
+            Assert.That(result[parentSection.Id], Is.EqualTo(newParentSectionId));
+            Assert.That(result[childSection.Id], Is.EqualTo(newChildSectionId));
+
+            _clientAdapterMock.Verify(adapter => adapter.ImportSection(_projectId, _rootSectionId, parentSection),
+                Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.ImportSection(_projectId, newParentSectionId, childSection),
+                Times.Once);
+        });
+    }
+
+    [Test]
+    public async Task ImportSections_WithNestedSections_LogsAndCallsExpectedApiSequence()
+    {
+        // Arrange
+        var childSection = new Section
+        {
+            Id = Guid.NewGuid(),
+            Name = "Child",
+            Sections = new List<Section>()
+        };
+
+        var parentSection = new Section
+        {
+            Id = Guid.NewGuid(),
+            Name = "Parent",
+            Sections = new List<Section> { childSection }
+        };
+
+        var capturedParentIds = new List<Guid>();
+        var capturedSections = new List<Section>();
+        var createdParentId = Guid.NewGuid();
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportSection(_projectId, _rootSectionId, parentSection))
+            .Callback<Guid, Guid, Section>((_, parentId, section) =>
+            {
+                capturedParentIds.Add(parentId);
+                capturedSections.Add(section);
+            })
+            .ReturnsAsync(createdParentId);
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportSection(_projectId, createdParentId, childSection))
+            .Callback<Guid, Guid, Section>((_, parentId, section) =>
+            {
+                capturedParentIds.Add(parentId);
+                capturedSections.Add(section);
+            })
+            .ReturnsAsync(Guid.NewGuid());
+
+        // Act
+        await _sectionService.ImportSections(_projectId, new[] { parentSection });
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(capturedSections, Is.EquivalentTo(new[] { parentSection, childSection }));
+            Assert.That(capturedParentIds, Has.Count.EqualTo(2));
+            Assert.That(capturedParentIds[0], Is.EqualTo(_rootSectionId));
+            Assert.That(capturedParentIds[1], Is.EqualTo(createdParentId));
+
+            _clientAdapterMock.Verify(adapter => adapter.ImportSection(_projectId, It.IsAny<Guid>(), It.IsAny<Section>()),
+                Times.Exactly(2));
+            _loggerMock.VerifyLogging("Importing sections", LogLevel.Information, Times.Once());
+            _loggerMock.VerifyLoggingCalls(LogLevel.Debug, 4);
+        });
+    }
+
+    [Test]
+    public void ImportSections_WhenGetRootSectionIdFails_PropagatesException()
+    {
+        // Arrange
+        var sections = new[]
+        {
+            new Section
+            {
+                Id = Guid.NewGuid(),
+                Name = "Any"
+            }
+        };
+
+        var expectedException = new InvalidOperationException("Failed to resolve root section");
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetRootSectionId(_projectId))
+            .ThrowsAsync(expectedException);
+
+        // Act
+        var actualException = Assert.ThrowsAsync<InvalidOperationException>(
+            () => _sectionService.ImportSections(_projectId, sections));
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(actualException, Is.SameAs(expectedException));
+            _clientAdapterMock.Verify(adapter => adapter.ImportSection(It.IsAny<Guid>(), It.IsAny<Guid>(),
+                It.IsAny<Section>()), Times.Never);
+            _loggerMock.VerifyLogging("Importing sections", LogLevel.Information, Times.Once());
+        });
+    }
+
+    [Test]
+    public void ImportSections_WhenNestedImportFails_StopsProcessingAndPropagatesException()
+    {
+        // Arrange
+        var parentSection = new Section
+        {
+            Id = Guid.NewGuid(),
+            Name = "Parent",
+            Sections = new List<Section>()
+        };
+
+        var failingChild = new Section
+        {
+            Id = Guid.NewGuid(),
+            Name = "Failing child"
+        };
+
+        parentSection.Sections.Add(failingChild);
+
+        var createdParentId = Guid.NewGuid();
+        var expectedException = new ApplicationException("Import failed");
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportSection(_projectId, _rootSectionId, parentSection))
+            .ReturnsAsync(createdParentId);
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportSection(_projectId, createdParentId, failingChild))
+            .ThrowsAsync(expectedException);
+
+        // Act
+        var actualException = Assert.ThrowsAsync<ApplicationException>(
+            () => _sectionService.ImportSections(_projectId, new[] { parentSection }));
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(actualException, Is.SameAs(expectedException));
+            _clientAdapterMock.Verify(adapter => adapter.ImportSection(_projectId, createdParentId, failingChild),
+                Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.ImportSection(_projectId, It.IsAny<Guid>(), It.IsAny<Section>()),
+                Times.AtLeastOnce);
+
+            _loggerMock.VerifyLogging("Importing sections", LogLevel.Information, Times.Once());
+            _loggerMock.VerifyLogging("Imported section", LogLevel.Debug, Times.Never());
         });
     }
 }
+

@@ -1,43 +1,45 @@
-using Microsoft.Extensions.Logging;
 using Importer.Client;
 using Importer.Services.Implementations;
-using NSubstitute;
+using Microsoft.Extensions.Logging;
 
 namespace ImporterTests;
 
+[TestFixture]
 public class ProjectServiceTests
 {
-    private ILogger<ProjectService> _logger = null!;
-    private IClientAdapter _clientAdapter = null!;
+    private Mock<ILogger<ProjectService>> _loggerMock = null!;
+    private Mock<IClientAdapter> _clientAdapterMock = null!;
     private ProjectService _projectService = null!;
-
     private const string ProjectName = "Test Project";
-    private static readonly Guid ExistingProjectId = Guid.Parse("8e2b4dc4-f6c3-472f-a58f-d57b968bbee7");
-    private static readonly Guid NewProjectId = Guid.Parse("9f3c5ed5-d7d4-483f-b69f-e68c079cffe8");
 
     [SetUp]
-    public void Setup()
+    public void SetUp()
     {
-        _logger = Substitute.For<ILogger<ProjectService>>();
-        _clientAdapter = Substitute.For<IClientAdapter>();
-        _projectService = new ProjectService(_logger, _clientAdapter);
+        _loggerMock = new Mock<ILogger<ProjectService>>();
+        _clientAdapterMock = new Mock<IClientAdapter>();
+        _projectService = new ProjectService(_loggerMock.Object, _clientAdapterMock.Object);
     }
 
     [Test]
     public async Task ImportProject_WhenProjectExists_ReturnsExistingId()
     {
         // Arrange
-        _clientAdapter.GetProject(ProjectName).Returns(ExistingProjectId);
+        var existingProjectId = Guid.NewGuid();
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProject(ProjectName))
+            .ReturnsAsync(existingProjectId);
 
         // Act
         var result = await _projectService.ImportProject(ProjectName);
 
         // Assert
-        Assert.Multiple(async () =>
+        Assert.Multiple(() =>
         {
-            Assert.That(result, Is.EqualTo(ExistingProjectId));
-            await _clientAdapter.Received(1).GetProject(ProjectName);
-            await _clientAdapter.DidNotReceive().CreateProject(Arg.Any<string>());
+            Assert.That(result, Is.EqualTo(existingProjectId));
+            _clientAdapterMock.Verify(adapter => adapter.GetProject(ProjectName), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.CreateProject(It.IsAny<string>()), Times.Never);
+            _loggerMock.VerifyLogging("Importing project", LogLevel.Information, Times.Once());
         });
     }
 
@@ -45,18 +47,26 @@ public class ProjectServiceTests
     public async Task ImportProject_WhenProjectNotExists_CreatesNewProject()
     {
         // Arrange
-        _clientAdapter.GetProject(ProjectName).Returns(Guid.Empty);
-        _clientAdapter.CreateProject(ProjectName).Returns(NewProjectId);
+        var createdProjectId = Guid.NewGuid();
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProject(ProjectName))
+            .ReturnsAsync(Guid.Empty);
+        _clientAdapterMock
+            .Setup(adapter => adapter.CreateProject(ProjectName))
+            .ReturnsAsync(createdProjectId);
 
         // Act
         var result = await _projectService.ImportProject(ProjectName);
 
         // Assert
-        Assert.Multiple(async () =>
+        Assert.Multiple(() =>
         {
-            Assert.That(result, Is.EqualTo(NewProjectId));
-            await _clientAdapter.Received(1).GetProject(ProjectName);
-            await _clientAdapter.Received(1).CreateProject(ProjectName);
+            Assert.That(result, Is.EqualTo(createdProjectId));
+            _clientAdapterMock.Verify(adapter => adapter.GetProject(ProjectName), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.CreateProject(ProjectName), Times.Once);
+            _loggerMock.VerifyLogging("Importing project", LogLevel.Information, Times.Once());
         });
     }
-} 
+}
+
