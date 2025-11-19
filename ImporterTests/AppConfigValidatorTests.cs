@@ -46,7 +46,7 @@ public class AppConfigValidatorTests
         // Arrange
         var config = new AppConfig
         {
-            ResultPath = null!,
+            ResultPath = null,
             Tms = new TmsConfig
             {
                 Url = "https://example.com",

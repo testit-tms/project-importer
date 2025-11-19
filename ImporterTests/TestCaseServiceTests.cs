@@ -10,7 +10,7 @@ namespace ImporterTests;
 [TestFixture]
 public class TestCaseServiceTests
 {
-    private static readonly Guid ProjectId = Guid.Parse("8e2b4dc4-f6c3-472f-a58f-d57b968bbee7");
+    private static readonly Guid ProjectId = Guid.NewGuid();
     private static readonly Guid SectionId = Guid.Parse("9f3c5ed5-d7d4-483f-b69f-e68c079cffe8");
     private static readonly Guid NewSectionId = Guid.Parse("7d1a4ec6-e8c5-494f-c70f-f79d168dffe9");
 

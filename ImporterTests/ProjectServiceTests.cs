@@ -68,5 +68,35 @@ public class ProjectServiceTests
             _loggerMock.VerifyLogging("Importing project", LogLevel.Information, Times.Once());
         });
     }
+
+    [Test]
+    public async Task ImportProject_WhenProjectNameIsNull_PropagatesToClientAdapter()
+    {
+        // Arrange
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProject(null!))
+            .ReturnsAsync(Guid.Empty);
+
+        // Act
+        await _projectService.ImportProject(null!);
+
+        // Assert
+        _clientAdapterMock.Verify(adapter => adapter.GetProject(null!), Times.Once);
+    }
+
+    [Test]
+    public async Task ImportProject_WhenProjectNameIsEmpty_PropagatesToClientAdapter()
+    {
+        // Arrange
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProject(string.Empty))
+            .ReturnsAsync(Guid.Empty);
+
+        // Act
+        await _projectService.ImportProject(string.Empty);
+
+        // Assert
+        _clientAdapterMock.Verify(adapter => adapter.GetProject(string.Empty), Times.Once);
+    }
 }
 

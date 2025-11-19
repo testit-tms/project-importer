@@ -8,7 +8,7 @@ namespace ImporterTests;
 [TestFixture]
 public class AttachmentServiceTests
 {
-    private static readonly Guid WorkItemId = Guid.Parse("8e2b4dc4-f6c3-472f-a58f-d57b968bbee7");
+    private static readonly Guid WorkItemId = Guid.NewGuid();
 
     private Mock<ILogger<AttachmentService>> _loggerMock = null!;
     private Mock<IClientAdapter> _clientAdapterMock = null!;

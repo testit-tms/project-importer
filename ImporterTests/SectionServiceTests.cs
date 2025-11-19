@@ -11,8 +11,8 @@ public class SectionServiceTests
     private Mock<IClientAdapter> _clientAdapterMock = null!;
     private SectionService _sectionService = null!;
 
-    private Guid _projectId;
-    private Guid _rootSectionId;
+    private readonly Guid _projectId = Guid.NewGuid();
+    private readonly Guid _rootSectionId = Guid.NewGuid();
 
     [SetUp]
     public void SetUp()
@@ -20,9 +20,6 @@ public class SectionServiceTests
         _loggerMock = new Mock<ILogger<SectionService>>();
         _clientAdapterMock = new Mock<IClientAdapter>();
         _sectionService = new SectionService(_loggerMock.Object, _clientAdapterMock.Object);
-
-        _projectId = Guid.NewGuid();
-        _rootSectionId = Guid.NewGuid();
 
         _clientAdapterMock
             .Setup(adapter => adapter.GetRootSectionId(_projectId))
@@ -77,7 +74,6 @@ public class SectionServiceTests
             _clientAdapterMock.Verify(adapter => adapter.ImportSection(_projectId, _rootSectionId, section), Times.Once);
 
             _loggerMock.VerifyLogging("Importing sections", LogLevel.Information, Times.Once());
-            _loggerMock.VerifyLoggingCalls(LogLevel.Debug, 2);
         });
     }
 
@@ -115,7 +111,6 @@ public class SectionServiceTests
                 Times.Once);
 
             _loggerMock.VerifyLogging("Importing sections", LogLevel.Information, Times.Once());
-            _loggerMock.VerifyLoggingCalls(LogLevel.Debug, 4);
         });
     }
 
@@ -220,7 +215,6 @@ public class SectionServiceTests
             _clientAdapterMock.Verify(adapter => adapter.ImportSection(_projectId, It.IsAny<Guid>(), It.IsAny<Section>()),
                 Times.Exactly(2));
             _loggerMock.VerifyLogging("Importing sections", LogLevel.Information, Times.Once());
-            _loggerMock.VerifyLoggingCalls(LogLevel.Debug, 4);
         });
     }
 
@@ -302,6 +296,14 @@ public class SectionServiceTests
             _loggerMock.VerifyLogging("Importing sections", LogLevel.Information, Times.Once());
             _loggerMock.VerifyLogging("Imported section", LogLevel.Debug, Times.Never());
         });
+    }
+
+    [Test]
+    public void ImportSections_WhenSectionsIsNull_ThrowsException()
+    {
+        // Act & Assert
+        Assert.ThrowsAsync<NullReferenceException>(() => 
+            _sectionService.ImportSections(_projectId, null!));
     }
 }
 

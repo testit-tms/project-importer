@@ -21,7 +21,7 @@ namespace ImporterTests
         private ImportService _importService = null!;
 
         // Test data
-        private static readonly Guid ProjectId = Guid.Parse("8e2b4dc4-f6c3-472f-a58f-d57b968bbee7");
+        private static readonly Guid ProjectId = Guid.NewGuid();
         private static readonly string ProjectName = "Test Project";
         private Root _mainJsonResult = null!;
         private Dictionary<Guid, Guid> _sectionsMap = null!;

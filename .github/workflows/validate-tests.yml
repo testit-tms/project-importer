@@ -23,9 +23,10 @@ jobs:
 
       - name: Tests
         run: |
-          dotnet test ./ImporterTests --collect:"XPlat Code Coverage" --results-directory ./coverage-reports/ \
-          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover \
-          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[**/obj/**]*,[**/bin/**]*,[**/NuGet/**]*,[**/packages/**]*"
+          dotnet test ./ImporterTests \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage-reports/ \
+            --settings ./ImporterTests/ImporterTests.runsettings
 
       - name: Install ReportGenerator
         run: dotnet tool install -g dotnet-reportgenerator-globaltool
