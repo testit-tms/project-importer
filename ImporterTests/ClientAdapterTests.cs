@@ -2008,7 +2008,7 @@ namespace ImporterTests
 
             _parametersApiMock
                 .Setup(x => x.ApiV2ParametersSearchPostAsync(
-                    null, null, null, null, null,
+                    null, null, null!, null!, null!,
                     It.Is<ParametersFilterApiModel>(f => f.Name == parameterName && f.IsDeleted == false),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(apiResponse);
@@ -2027,7 +2027,7 @@ namespace ImporterTests
 
                 _parametersApiMock.Verify(
                     x => x.ApiV2ParametersSearchPostAsync(
-                        null, null, null, null, null,
+                        null, null, null!, null!, null!,
                         It.Is<ParametersFilterApiModel>(f => f.Name == parameterName && f.IsDeleted == false),
                         It.IsAny<CancellationToken>()),
                     Times.Once);
@@ -2045,7 +2045,7 @@ namespace ImporterTests
 
             _parametersApiMock
                 .Setup(x => x.ApiV2ParametersSearchPostAsync(
-                    null, null, null, null, null,
+                    null, null, null!, null!, null!,
                     It.IsAny<ParametersFilterApiModel>(),
                     It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));

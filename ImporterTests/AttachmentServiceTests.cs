@@ -91,7 +91,7 @@ public class AttachmentServiceTests
         }
         finally
         {
-            stream?.Dispose();
+            stream?.DisposeAsync();
             try
             {
                 if (File.Exists(attachmentName))
@@ -108,7 +108,7 @@ public class AttachmentServiceTests
         var attachment1Name = $"{Guid.NewGuid():N}.txt";
         var attachment2Name = $"{Guid.NewGuid():N}.txt";
         var attachment3Name = $"{Guid.NewGuid():N}.txt";
-        
+
         var attachment1Id = Guid.NewGuid();
         var attachment2Id = Guid.NewGuid();
         var attachment3Id = Guid.NewGuid();
@@ -178,9 +178,9 @@ public class AttachmentServiceTests
         }
         finally
         {
-            stream1?.Dispose();
-            stream2?.Dispose();
-            stream3?.Dispose();
+            stream1?.DisposeAsync();
+            stream2?.DisposeAsync();
+            stream3?.DisposeAsync();
             try
             {
                 if (File.Exists(attachment1Name)) File.Delete(attachment1Name);
@@ -198,7 +198,7 @@ public class AttachmentServiceTests
         var attachment1Name = "test1.txt";
         var attachment2Name = "test2.txt";
         var attachment3Name = "test3.txt";
-        
+
         var attachment2Id = Guid.NewGuid();
         var attachment3Id = Guid.NewGuid();
 
@@ -264,8 +264,8 @@ public class AttachmentServiceTests
         }
         finally
         {
-            stream2?.Dispose();
-            stream3?.Dispose();
+            stream2?.DisposeAsync();
+            stream3?.DisposeAsync();
             try
             {
                 if (File.Exists(attachment2Name)) File.Delete(attachment2Name);
@@ -282,7 +282,7 @@ public class AttachmentServiceTests
         var attachment1Name = "test1.txt";
         var attachment2Name = "test2.txt";
         var attachment3Name = "test3.txt";
-        
+
         var attachment2Id = Guid.NewGuid();
         var attachment3Id = Guid.NewGuid();
 
@@ -354,9 +354,9 @@ public class AttachmentServiceTests
         }
         finally
         {
-            stream1?.Dispose();
-            stream2?.Dispose();
-            stream3?.Dispose();
+            stream1?.DisposeAsync();
+            stream2?.DisposeAsync();
+            stream3?.DisposeAsync();
             try
             {
                 if (File.Exists(attachment1Name)) File.Delete(attachment1Name);
@@ -448,7 +448,7 @@ public class AttachmentServiceTests
         }
         finally
         {
-            stream?.Dispose();
+            stream?.DisposeAsync();
             try
             {
                 if (fullPath != null && File.Exists(fullPath))
@@ -468,7 +468,7 @@ public class AttachmentServiceTests
         var attachment2Name = "test2.txt";
         var attachment3Name = "test3.txt";
         var attachment4Name = "test4.txt";
-        
+
         var attachment1Id = Guid.NewGuid();
         var attachment3Id = Guid.NewGuid();
 
@@ -548,9 +548,9 @@ public class AttachmentServiceTests
         }
         finally
         {
-            stream1?.Dispose();
-            stream3?.Dispose();
-            stream4?.Dispose();
+            stream1?.DisposeAsync();
+            stream3?.DisposeAsync();
+            stream4?.DisposeAsync();
             try
             {
                 if (File.Exists(attachment1Name)) File.Delete(attachment1Name);
@@ -559,13 +559,12 @@ public class AttachmentServiceTests
             }
             catch { }
         }
+    }
 
-        }
-        private static FileStream CreateTestFile(string fileName)
-        {
-            using (File.Create(fileName)) { }
-            return new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
-        }
-    
+    private static FileStream CreateTestFile(string fileName)
+    {
+        using (File.Create(fileName)) { }
+        return new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+    }
 }
 

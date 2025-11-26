@@ -1,6 +1,5 @@
 using Importer.Models;
 using Importer.Validators;
-using Microsoft.Extensions.Options;
 
 namespace ImporterTests;
 
@@ -46,7 +45,7 @@ public class AppConfigValidatorTests
         // Arrange
         var config = new AppConfig
         {
-            ResultPath = null,
+            ResultPath = null!,
             Tms = new TmsConfig
             {
                 Url = "https://example.com",
