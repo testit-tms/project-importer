@@ -59,7 +59,7 @@ internal class ParserService : IParserService
         if (!File.Exists(sharedStepPath))
         {
             _logger.LogError("Shared step file not found: {Path}", sharedStepPath);
-            throw new ApplicationException("Shared step file not found");
+            throw new FileNotFoundException("Shared step file not found");
         }
 
         var sharedStepJson = await File.ReadAllTextAsync(sharedStepPath);
@@ -77,7 +77,7 @@ internal class ParserService : IParserService
         if (!File.Exists(testCasePath))
         {
             _logger.LogError("Test case file not found: {Path}", testCasePath);
-            throw new ApplicationException("Test case file not found");
+            throw new FileNotFoundException("Test case file not found");
         }
 
         var testCaseJson = await File.ReadAllTextAsync(testCasePath);
@@ -96,7 +96,7 @@ internal class ParserService : IParserService
         if (!File.Exists(filePath))
         {
             _logger.LogError("Attachment file not found: {Path}", filePath);
-            throw new ApplicationException("Attachment file not found");
+            throw new FileNotFoundException("Attachment file not found");
         }
 
         var fileInfo = new FileInfo(filePath);

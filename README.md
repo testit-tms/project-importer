@@ -70,3 +70,7 @@ You can help to develop the project. Any contributions are **greatly appreciated
 
 Distributed under the Apache-2.0 License.
 See [LICENSE](https://github.com/testit-tms/project-importer/blob/main/LICENSE) for more information.
+
+<a href='https://coveralls.io/github/testit-tms/project-importer?branch=main'>
+  <img src='https://coveralls.io/repos/github/testit-tms/project-importer/badge.svg?branch=main' alt='Coverage Status' />
+</a>

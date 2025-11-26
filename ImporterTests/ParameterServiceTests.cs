@@ -2,191 +2,417 @@ using Importer.Client;
 using Importer.Models;
 using Importer.Services.Implementations;
 using Microsoft.Extensions.Logging;
-using Models;
-using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 
-namespace ImporterTests;
-
-public class ParameterServiceTests
+namespace ImporterTests
 {
-    private ILogger<ParameterService> _logger = null!;
-    private IClientAdapter _clientAdapter = null!;
-    private ParameterService _parameterService = null!;
+	[TestFixture]
+	public class ParameterServiceTests
+	{
+		private Mock<ILogger<ParameterService>> _loggerMock = null!;
+		private Mock<IClientAdapter> _clientAdapterMock = null!;
+		private ParameterService _service = null!;
 
-    private static readonly Guid ParameterId1 = Guid.Parse("8e2b4dc4-f6c3-472f-a58f-d57b968bbee7");
-    private static readonly Guid ParameterId2 = Guid.Parse("9767ce0e-a214-4ebc-af69-71aa88b0ad0d");
+        private Parameter _parameter1 = null!;
+        private Parameter _parameter2 = null!;
+        private TmsParameter _existingParameter = null!;
 
-    private List<Parameter> _parameters = null!;
-    private List<TmsParameter> _existingParameters = null!;
+        [SetUp]
+		public void SetUp()
+		{
+			_loggerMock = new Mock<ILogger<ParameterService>>();
+			_clientAdapterMock = new Mock<IClientAdapter>(MockBehavior.Strict);
+			_service = new ParameterService(_loggerMock.Object, _clientAdapterMock.Object);
 
-    [SetUp]
-    public void Setup()
-    {
-        _logger = Substitute.For<ILogger<ParameterService>>();
-        _clientAdapter = Substitute.For<IClientAdapter>();
-
-        InitializeTestData();
-
-        _parameterService = new ParameterService(_logger, _clientAdapter);
-    }
-
-    private void InitializeTestData()
-    {
-        _parameters = new List<Parameter>
-        {
-            new()
+            _parameter1 = new Parameter
             {
                 Name = "TestParam1",
                 Value = "Value1"
-            },
-            new()
+            };
+
+
+            _parameter2 = new Parameter
             {
                 Name = "TestParam2",
                 Value = "Value2"
-            }
-        };
+            };
 
-        _existingParameters = new List<TmsParameter>
-        {
-            new()
+            _existingParameter = new TmsParameter
             {
-                Id = ParameterId1,
+                Id = Guid.NewGuid(),
                 Name = "TestParam1",
                 Value = "Value1"
-            }
-        };
-    }
+            };
+        }
 
-    [Test]
-    public async Task CreateParameters_WhenGetParameterFails_ThrowsException()
-    {
-        // Arrange
-        _clientAdapter.GetParameter(_parameters[0].Name)
-            .ThrowsAsync(new Exception("Failed to get parameter"));
+		[Test]
+		public async Task CreateParameters_WhenEmptyInput_LogsAndReturnsEmpty()
+		{
+			// Act
+			var result = await _service.CreateParameters(Array.Empty<Parameter>());
 
-        // Act & Assert
-        var ex = Assert.ThrowsAsync<Exception>(
-            async () => await _parameterService.CreateParameters(_parameters));
+			// Assert
+			Assert.Multiple(() =>
+			{
+				Assert.That(result, Is.Not.Null);
+				Assert.That(result, Is.Empty);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(ex!.Message, Is.EqualTo("Failed to get parameter"));
-            _clientAdapter.DidNotReceive().CreateParameter(Arg.Any<Parameter>());
-        });
-    }
+				_clientAdapterMock.Verify(a => a.GetParameter(It.IsAny<string>()), Times.Never);
+				_clientAdapterMock.Verify(a => a.CreateParameter(It.IsAny<Parameter>()), Times.Never);
 
-    [Test]
-    public async Task CreateParameters_WhenCreateParameterFails_ThrowsException()
-    {
-        // Arrange
-        _clientAdapter.GetParameter(_parameters[0].Name).Returns(new List<TmsParameter>());
-        _clientAdapter.CreateParameter(_parameters[0])
-            .ThrowsAsync(new Exception("Failed to create parameter"));
+				_loggerMock.VerifyLogging("Creating parameters", LogLevel.Information, Times.Once());
+			});
+		}
 
-        // Act & Assert
-        var ex = Assert.ThrowsAsync<Exception>(
-            async () => await _parameterService.CreateParameters(_parameters));
+		[Test]
+		public async Task CreateParameters_WithMultipleParameters_HandlesExistingAndCreate()
+		{
+			// Arrange
+			var createdForSecondTmsParameter = new TmsParameter {
+                Id = Guid.NewGuid(),
+                Name = _parameter2.Name,
+                Value = _parameter2.Value
+            };
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(ex!.Message, Is.EqualTo("Failed to create parameter"));
-            _clientAdapter.Received(1).GetParameter(_parameters[0].Name);
-        });
-    }
+			_clientAdapterMock
+				.Setup(a => a.GetParameter(_parameter1.Name))
+				.ReturnsAsync(new List<TmsParameter> { _existingParameter });
 
-    [Test]
-    public async Task CreateParameters_WhenParameterExists_ReturnsExistingParameter()
-    {
-        // Arrange
-        _clientAdapter.GetParameter(_parameters[0].Name).Returns(_existingParameters);
+			_clientAdapterMock
+				.Setup(a => a.GetParameter(_parameter2.Name))
+				.ReturnsAsync(new List<TmsParameter>());
 
-        // Act
-        var result = await _parameterService.CreateParameters(new[] { _parameters[0] });
+			_clientAdapterMock
+				.Setup(a => a.CreateParameter(_parameter2))
+				.ReturnsAsync(createdForSecondTmsParameter);
 
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.Not.Null);
-            Assert.That(result.Count, Is.EqualTo(1));
-            Assert.That(result[0].Id, Is.EqualTo(_existingParameters[0].Id));
-            Assert.That(result[0].Name, Is.EqualTo(_existingParameters[0].Name));
-            Assert.That(result[0].Value, Is.EqualTo(_existingParameters[0].Value));
+			// Act
+			var result = await _service.CreateParameters(new[] { _parameter1, _parameter2 });
 
-            _clientAdapter.Received(1).GetParameter(_parameters[0].Name);
-            _clientAdapter.DidNotReceive().CreateParameter(Arg.Any<Parameter>());
-        });
-    }
+			// Assert
+			Assert.Multiple(() =>
+			{
+				Assert.That(result, Has.Count.EqualTo(2));
 
-    [Test]
-    public async Task CreateParameters_WhenParameterDoesNotExist_CreatesNewParameter()
-    {
-        // Arrange
-        var newParameter = new TmsParameter
-        {
-            Id = ParameterId2,
-            Name = _parameters[1].Name,
-            Value = _parameters[1].Value
-        };
+				Assert.That(result[0].Id, Is.EqualTo(_existingParameter.Id));
+				Assert.That(result[0].Name, Is.EqualTo(_existingParameter.Name));
+				Assert.That(result[0].Value, Is.EqualTo(_existingParameter.Value));
 
-        _clientAdapter.GetParameter(_parameters[1].Name).Returns(new List<TmsParameter>());
-        _clientAdapter.CreateParameter(_parameters[1]).Returns(newParameter);
+				Assert.That(result[1].Id, Is.EqualTo(createdForSecondTmsParameter.Id));
+				Assert.That(result[1].Name, Is.EqualTo(createdForSecondTmsParameter.Name));
+				Assert.That(result[1].Value, Is.EqualTo(createdForSecondTmsParameter.Value));
 
-        // Act
-        var result = await _parameterService.CreateParameters(new[] { _parameters[1] });
+				_clientAdapterMock.Verify(a => a.GetParameter(_parameter1.Name), Times.Once);
+				_clientAdapterMock.Verify(a => a.GetParameter(_parameter2.Name), Times.Once);
+				_clientAdapterMock.Verify(a => a.CreateParameter(_parameter1), Times.Never);
+				_clientAdapterMock.Verify(a => a.CreateParameter(_parameter2), Times.Once);
 
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.Not.Null);
-            Assert.That(result.Count, Is.EqualTo(1));
-            Assert.That(result[0].Id, Is.EqualTo(newParameter.Id));
-            Assert.That(result[0].Name, Is.EqualTo(newParameter.Name));
-            Assert.That(result[0].Value, Is.EqualTo(newParameter.Value));
+				_loggerMock.VerifyLogging("Creating parameters", LogLevel.Information, Times.Once());
+				_loggerMock.VerifyLogging("already exist", LogLevel.Debug, Times.Once());
+			});
+		}
 
-            _clientAdapter.Received(1).GetParameter(_parameters[1].Name);
-            _clientAdapter.Received(1).CreateParameter(_parameters[1]);
-        });
-    }
+		[Test]
+		public void CreateParameters_WhenGetParameterThrows_PropagatesException()
+		{
+			// Arrange
+			_clientAdapterMock
+				.Setup(a => a.GetParameter(_parameter1.Name))
+				.ThrowsAsync(new Exception("Failed to get parameter"));
 
-    [Test]
-    public async Task CreateParameters_WithMultipleParameters_HandlesAllCorrectly()
-    {
-        // Arrange
-        var newParameter = new TmsParameter
-        {
-            Id = ParameterId2,
-            Name = _parameters[1].Name,
-            Value = _parameters[1].Value
-        };
+			// Act
+			var ex = Assert.ThrowsAsync<Exception>(async () => await _service.CreateParameters(new[] { _parameter1 }));
 
-        _clientAdapter.GetParameter(_parameters[0].Name).Returns(_existingParameters);
-        _clientAdapter.GetParameter(_parameters[1].Name).Returns(new List<TmsParameter>());
-        _clientAdapter.CreateParameter(_parameters[1]).Returns(newParameter);
+			// Assert
+			Assert.Multiple(() =>
+			{
+				Assert.That(ex!.Message, Is.EqualTo("Failed to get parameter"));
+				_clientAdapterMock.Verify(a => a.CreateParameter(It.IsAny<Parameter>()), Times.Never);
+				_loggerMock.VerifyLogging("Creating parameters", LogLevel.Information, Times.Once());
+			});
+		}
 
-        // Act
-        var result = await _parameterService.CreateParameters(_parameters);
+		[Test]
+		public async Task CreateParameters_WithSameNameDifferentValues_UsesExistingAndCreatesSecond()
+		{
+			// Arrange
+			var sameNameDifferentValue = new Parameter {
+                Name = _parameter1.Name,
+                Value = "AnotherValue"
+            };
 
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.Not.Null);
-            Assert.That(result.Count, Is.EqualTo(2));
+			var createdTmsParameter = new TmsParameter {
+                Id = Guid.NewGuid(),
+                Name = sameNameDifferentValue.Name,
+                Value = sameNameDifferentValue.Value
+            };
 
-            // Check first parameter
-            Assert.That(result[0].Id, Is.EqualTo(_existingParameters[0].Id));
-            Assert.That(result[0].Name, Is.EqualTo(_existingParameters[0].Name));
-            Assert.That(result[0].Value, Is.EqualTo(_existingParameters[0].Value));
+			_clientAdapterMock
+				.SetupSequence(a => a.GetParameter(_parameter1.Name))
+				.ReturnsAsync(new List<TmsParameter> { _existingParameter })
+				.ReturnsAsync(new List<TmsParameter> { _existingParameter });
 
-            // Check second
-            Assert.That(result[1].Id, Is.EqualTo(newParameter.Id));
-            Assert.That(result[1].Name, Is.EqualTo(newParameter.Name));
-            Assert.That(result[1].Value, Is.EqualTo(newParameter.Value));
+			_clientAdapterMock
+				.Setup(a => a.CreateParameter(sameNameDifferentValue))
+				.ReturnsAsync(createdTmsParameter);
 
-            _clientAdapter.Received(1).GetParameter(_parameters[0].Name);
-            _clientAdapter.Received(1).GetParameter(_parameters[1].Name);
-            _clientAdapter.DidNotReceive().CreateParameter(_parameters[0]);
-            _clientAdapter.Received(1).CreateParameter(_parameters[1]);
-        });
-    }
+			// Act
+			var result = await _service.CreateParameters(new[] { _parameter1, sameNameDifferentValue });
+
+			// Assert
+			Assert.Multiple(() =>
+			{
+				Assert.That(result, Has.Count.EqualTo(2));
+
+				Assert.That(result[0].Id, Is.EqualTo(_existingParameter.Id));
+				Assert.That(result[0].Value, Is.EqualTo(_existingParameter.Value));
+
+				Assert.That(result[1].Id, Is.EqualTo(createdTmsParameter.Id));
+				Assert.That(result[1].Value, Is.EqualTo(createdTmsParameter.Value));
+
+				_clientAdapterMock.Verify(a => a.GetParameter(_parameter1.Name), Times.Exactly(2));
+				_clientAdapterMock.Verify(a => a.CreateParameter(_parameter1), Times.Never);
+				_clientAdapterMock.Verify(a => a.CreateParameter(sameNameDifferentValue), Times.Once);
+
+				_loggerMock.VerifyLogging("Creating parameters", LogLevel.Information, Times.Once());
+				_loggerMock.VerifyLogging("already exist", LogLevel.Debug, Times.Once());
+			});
+		}
+
+		[Test]
+		public async Task CreateParameters_WhenParameterExists_ReturnsExistingNotCallCreate()
+		{
+            // Arrange
+            var notTmsParametr = new TmsParameter {
+                Id = Guid.NewGuid(),
+                Name = "TestParam2",
+                Value = "N/A"
+            };
+
+            _clientAdapterMock
+				.Setup(a => a.GetParameter(_parameter1.Name))
+				.ReturnsAsync(new List<TmsParameter> { _existingParameter, notTmsParametr });
+
+			// Act
+			var result = await _service.CreateParameters(new[] { _parameter1 });
+
+			// Assert
+			Assert.Multiple(() =>
+			{
+				Assert.That(result, Has.Count.EqualTo(1));
+				Assert.That(result[0].Id, Is.EqualTo(_existingParameter.Id));
+				Assert.That(result[0].Name, Is.EqualTo(_existingParameter.Name));
+				Assert.That(result[0].Value, Is.EqualTo(_existingParameter.Value));
+
+				_clientAdapterMock.Verify(a => a.GetParameter(_parameter1.Name), Times.Once);
+				_clientAdapterMock.Verify(a => a.CreateParameter(It.IsAny<Parameter>()), Times.Never);
+
+				_loggerMock.VerifyLogging("Creating parameters", LogLevel.Information, Times.Once());
+				_loggerMock.VerifyLogging("already exist", LogLevel.Debug, Times.Once());
+			});
+		}
+
+		[Test]
+		public async Task CreateParameters_WhenParameterNotExists_CreatesAndReturnsNew()
+		{
+            // Arrange
+            var newTmsParameter = new TmsParameter
+            {
+                Id = Guid.NewGuid(),
+                Name = _parameter1.Name,
+                Value = _parameter1.Value
+            };
+
+			_clientAdapterMock
+				.Setup(a => a.GetParameter(_parameter1.Name))
+				.ReturnsAsync(new List<TmsParameter>());
+
+			_clientAdapterMock
+				.Setup(a => a.CreateParameter(_parameter1))
+				.ReturnsAsync(newTmsParameter);
+
+			// Act
+			var result = await _service.CreateParameters(new[] { _parameter1 });
+
+			// Assert
+			Assert.Multiple(() =>
+			{
+				Assert.That(result, Has.Count.EqualTo(1));
+				Assert.That(result[0].Id, Is.EqualTo(newTmsParameter.Id));
+				Assert.That(result[0].Name, Is.EqualTo(newTmsParameter.Name));
+				Assert.That(result[0].Value, Is.EqualTo(newTmsParameter.Value));
+
+				_clientAdapterMock.Verify(a => a.GetParameter(_parameter1.Name), Times.Once);
+				_clientAdapterMock.Verify(a => a.CreateParameter(_parameter1), Times.Once);
+
+				_loggerMock.VerifyLogging("Creating parameters", LogLevel.Information, Times.Once());
+			});
+		}
+
+		[Test]
+		public async Task CreateParameters_WhenCreateThrows_UsesNAFallbackAndLogsErrorAndDebug()
+		{
+            // Arrange
+            var otherTmsParameter = new TmsParameter
+            {
+                Id = Guid.NewGuid(),
+                Name = _parameter1.Name,
+                Value = "other"
+            };
+
+            var naTmsParameter = new TmsParameter {
+                Id = Guid.NewGuid(),
+                Name = _parameter1.Name,
+                Value = "N/A"
+            };
+
+            _clientAdapterMock
+				.Setup(a => a.GetParameter(_parameter1.Name))
+				.ReturnsAsync(new List<TmsParameter> { otherTmsParameter, naTmsParameter });
+
+			_clientAdapterMock
+				.Setup(a => a.CreateParameter(_parameter1))
+				.ThrowsAsync(new Exception("boom"));
+
+			// Act
+			var result = await _service.CreateParameters(new[] { _parameter1 });
+
+			// Assert
+			Assert.Multiple(() =>
+			{
+				Assert.That(result, Has.Count.EqualTo(1));
+				Assert.That(result[0].Id, Is.EqualTo(naTmsParameter.Id));
+				Assert.That(result[0].Value, Is.EqualTo("N/A"));
+
+				_clientAdapterMock.Verify(a => a.GetParameter(_parameter1.Name), Times.Once);
+				_clientAdapterMock.Verify(a => a.CreateParameter(_parameter1), Times.Once);
+
+				_loggerMock.VerifyLogging("Creating parameters", LogLevel.Information, Times.Once());
+				_loggerMock.VerifyLogging("Failed to create parameter", LogLevel.Error, Times.Once());
+				_loggerMock.VerifyLogging("already exist with N/A", LogLevel.Debug, Times.Once());
+			});
+		}
+
+		[Test]
+		public async Task CreateParameters_WhenCreateThrows_UsesEmptyStringFallback()
+		{
+            // Arrange
+            var otherTmsParameter = new TmsParameter
+            {
+                Id = Guid.NewGuid(),
+                Name = _parameter1.Name,
+                Value = "other"
+            };
+
+            var emptyTmsParameter = new TmsParameter
+            {
+                Id = Guid.NewGuid(),
+                Name = _parameter1.Name,
+                Value = string.Empty
+            };
+
+			_clientAdapterMock
+				.Setup(a => a.GetParameter(_parameter1.Name))
+				.ReturnsAsync(new List<TmsParameter> { otherTmsParameter, emptyTmsParameter });
+
+			_clientAdapterMock
+				.Setup(a => a.CreateParameter(_parameter1))
+				.ThrowsAsync(new Exception("fail"));
+
+			// Act
+			var result = await _service.CreateParameters(new[] { _parameter1 });
+
+			// Assert
+			Assert.Multiple(() =>
+			{
+				Assert.That(result, Has.Count.EqualTo(1));
+				Assert.That(result[0].Id, Is.EqualTo(emptyTmsParameter.Id));
+				Assert.That(result[0].Value, Is.EqualTo(string.Empty));
+
+				_clientAdapterMock.Verify(a => a.GetParameter(_parameter1.Name), Times.Once);
+				_clientAdapterMock.Verify(a => a.CreateParameter(_parameter1), Times.Once);
+
+				_loggerMock.VerifyLogging("Creating parameters", LogLevel.Information, Times.Once());
+				_loggerMock.VerifyLogging("Failed to create parameter", LogLevel.Error, Times.Once());
+				_loggerMock.VerifyLogging("already exist with empty string", LogLevel.Debug, Times.Once());
+			});
+		}
+
+		[Test]
+		public async Task CreateParameters_WhenCreateThrows_AndNoFallback_SkipsAdding()
+		{
+			// Arrange
+			_clientAdapterMock
+				.Setup(a => a.GetParameter(_parameter1.Name))
+				.ReturnsAsync(new List<TmsParameter>
+				{
+					new TmsParameter { Id = Guid.NewGuid(), Name = _parameter1.Name, Value = "other1" },
+					new TmsParameter { Id = Guid.NewGuid(), Name = _parameter1.Name, Value = "other2" }
+				});
+
+			_clientAdapterMock
+				.Setup(a => a.CreateParameter(_parameter1))
+				.ThrowsAsync(new Exception("err"));
+
+			// Act
+			var result = await _service.CreateParameters(new[] { _parameter1 });
+
+			// Assert
+			Assert.Multiple(() =>
+			{
+				Assert.That(result, Is.Not.Null);
+				Assert.That(result, Is.Empty);
+
+				_clientAdapterMock.Verify(a => a.GetParameter(_parameter1.Name), Times.Once);
+				_clientAdapterMock.Verify(a => a.CreateParameter(_parameter1), Times.Once);
+
+				_loggerMock.VerifyLogging("Creating parameters", LogLevel.Information, Times.Once());
+				_loggerMock.VerifyLogging("Failed to create parameter", LogLevel.Error, Times.Once());
+			});
+		}
+
+		[Test]
+		public async Task CreateParameters_WhenBothNAAndEmptyPresent_PrefersNA()
+		{
+			// Arrange
+			var naTmsParameter = new TmsParameter {
+                Id = Guid.NewGuid(),
+                Name = _parameter1.Name,
+                Value = "N/A"
+            };
+
+			var emptyTmsParameter = new TmsParameter {
+                Id = Guid.NewGuid(),
+                Name = _parameter1.Name,
+                Value = string.Empty
+            };
+
+			_clientAdapterMock
+				.Setup(a => a.GetParameter(_parameter1.Name))
+				.ReturnsAsync(new List<TmsParameter> { emptyTmsParameter, naTmsParameter });
+
+			_clientAdapterMock
+				.Setup(a => a.CreateParameter(_parameter1))
+				.ThrowsAsync(new Exception("x"));
+
+			// Act
+			var result = await _service.CreateParameters(new[] { _parameter1 });
+
+			// Assert
+			Assert.Multiple(() =>
+			{
+				Assert.That(result, Has.Count.EqualTo(1));
+				Assert.That(result[0].Value, Is.EqualTo("N/A"));
+				Assert.That(result[0].Id, Is.EqualTo(naTmsParameter.Id));
+
+				_clientAdapterMock.Verify(a => a.GetParameter(_parameter1.Name), Times.Once);
+				_clientAdapterMock.Verify(a => a.CreateParameter(_parameter1), Times.Once);
+
+				_loggerMock.VerifyLogging("Creating parameters", LogLevel.Information, Times.Once());
+				_loggerMock.VerifyLogging("Failed to create parameter", LogLevel.Error, Times.Once());
+				_loggerMock.VerifyLogging("already exist with N/A", LogLevel.Debug, Times.Once());
+			});
+		}
+	}
 }
+
+

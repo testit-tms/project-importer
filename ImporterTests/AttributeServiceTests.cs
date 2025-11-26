@@ -2,281 +2,524 @@ using Importer.Client;
 using Importer.Models;
 using Importer.Services.Implementations;
 using Microsoft.Extensions.Logging;
-using Models;
-using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 using Attribute = Models.Attribute;
 
 namespace ImporterTests;
 
+[TestFixture]
 public class AttributeServiceTests
 {
-    private ILogger<AttributeService> _logger = null!;
-    private IClientAdapter _clientAdapter = null!;
+    private Guid _projectId;
+
+    private Mock<ILogger<AttributeService>> _loggerMock = null!;
+    private Mock<IClientAdapter> _clientAdapterMock = null!;
     private AttributeService _attributeService = null!;
 
-    private static readonly Guid ProjectId = Guid.Parse("8e2b4dc4-f6c3-472f-a58f-d57b968bbee7");
-    private static readonly Guid AttributeId1 = Guid.Parse("8e2b4dc4-f6c3-472f-a58f-d57b968bbee6");
-    private static readonly Guid AttributeId2 = Guid.Parse("9767ce0e-a214-4ebc-af69-71aa88b0ad0d");
-    private static readonly Guid TmsAttributeId1 = Guid.Parse("8e2b4dc4-f6c3-472f-a58f-d57b968bbe10");
-    private static readonly Guid TmsAttributeId2 = Guid.Parse("9767ce0e-a214-4ebc-af69-71aa88b0ad10");
+    private Attribute _optionsAttribute = null!;
+    private Attribute _stringAttribute = null!;
 
-    private List<Attribute> _attributes = null!;
-    private List<TmsAttribute> _tmsAttributes = null!;
-    private Dictionary<Guid, TmsAttribute> _attributesMap = null!;
+    private TmsAttribute _tmsOptionsAttribute = null!;
+    private TmsAttribute _tmsStringAttribute = null!;
 
     [SetUp]
-    public void Setup()
+    public void SetUp()
     {
-        _logger = Substitute.For<ILogger<AttributeService>>();
-        _clientAdapter = Substitute.For<IClientAdapter>();
+        _loggerMock = new Mock<ILogger<AttributeService>>();
+        _clientAdapterMock = new Mock<IClientAdapter>();
+        _attributeService = new AttributeService(_loggerMock.Object, _clientAdapterMock.Object);
 
-        InitializeTestData();
+        _projectId = Guid.NewGuid();
 
-        _attributeService = new AttributeService(_logger, _clientAdapter);
-    }
-
-    private void InitializeTestData()
-    {
-        _attributes = new List<Attribute>
+        _stringAttribute = new Attribute
         {
-            new()
+            Id = Guid.Parse("8e2b4dc4-f6c3-472f-a58f-d57b968bbee6"),
+            Name = "TestAttribute",
+            IsActive = true,
+            IsRequired = false,
+            Type = AttributeType.String,
+            Options = new List<string>()
+        };
+
+        _optionsAttribute = new Attribute
+        {
+            Id = Guid.Parse("9767ce0e-a214-4ebc-af69-71aa88b0ad0d"),
+            Name = "TestAttribute2",
+            IsActive = true,
+            IsRequired = false,
+            Type = AttributeType.Options,
+            Options = new List<string> { "Option1", "Option2" }
+        };
+
+        _tmsStringAttribute = new TmsAttribute
+        {
+            Id = Guid.Parse("8e2b4dc4-f6c3-472f-a58f-d57b968bbe10"),
+            Name = "TestAttribute",
+            IsRequired = false,
+            IsEnabled = true,
+            Type = "String",
+            Options = new List<TmsAttributeOptions>()
+        };
+
+        _tmsOptionsAttribute = new TmsAttribute
+        {
+            Id = Guid.Parse("9767ce0e-a214-4ebc-af69-71aa88b0ad10"),
+            Name = "TestAttribute2",
+            IsRequired = false,
+            IsEnabled = true,
+            Type = "Options",
+            Options = new List<TmsAttributeOptions>
             {
-                Id = AttributeId1,
-                Name = "TestAttribute",
-                IsActive = true,
-                IsRequired = false,
-                Type = AttributeType.String,
-                Options = []
-            },
-            new()
-            {
-                Id = AttributeId2,
-                Name = "TestAttribute2",
-                IsActive = true,
-                IsRequired = false,
-                Type = AttributeType.Options,
-                Options = ["Option1", "Option2"]
+                new() { Id = Guid.NewGuid(), Value = "Option1", IsDefault = true },
+                new() { Id = Guid.NewGuid(), Value = "Option2", IsDefault = false }
             }
         };
-
-        _tmsAttributes = new List<TmsAttribute>
-        {
-            new()
-            {
-                Id = TmsAttributeId1,
-                Name = "TestAttribute",
-                IsRequired = false,
-                IsEnabled = true,
-                Type = "String",
-                Options = []
-            },
-            new()
-            {
-                Id = TmsAttributeId2,
-                Name = "TestAttribute2",
-                IsRequired = false,
-                IsEnabled = true,
-                Type = "Options",
-                Options = new List<TmsAttributeOptions>
-                {
-                    new() { Id = Guid.NewGuid(), Value = "Option1", IsDefault = true },
-                    new() { Id = Guid.NewGuid(), Value = "Option2", IsDefault = false }
-                }
-            }
-        };
-
-        _attributesMap = new Dictionary<Guid, TmsAttribute>
-        {
-            { AttributeId1, _tmsAttributes[0] },
-            { AttributeId2, _tmsAttributes[1] }
-        };
     }
 
     [Test]
-    public async Task ImportAttributes_WhenGetProjectAttributesFails_ThrowsException()
+    public void ImportAttributes_WhenGetProjectAttributesFails_ThrowsException()
     {
         // Arrange
-        _clientAdapter.GetProjectAttributes()
-            .ThrowsAsync(new Exception("Failed to get project attributes"));
-        _clientAdapter.GetRequiredProjectAttributesByProjectId(ProjectId)
-            .Returns(new List<TmsAttribute>());
+        var expectedException = new InvalidOperationException("Failed to get project attributes");
 
-        // Act & Assert
-        var ex = Assert.ThrowsAsync<Exception>(
-            async () => await _attributeService.ImportAttributes(ProjectId, _attributes));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(ex!.Message, Is.EqualTo("Failed to get project attributes"));
-            _clientAdapter.DidNotReceive().ImportAttribute(Arg.Any<Attribute>());
-            _clientAdapter.DidNotReceive().UpdateAttribute(Arg.Any<TmsAttribute>());
-            _clientAdapter.DidNotReceive().AddAttributesToProject(ProjectId, Arg.Any<IEnumerable<Guid>>());
-        });
-    }
-
-    [Test]
-    public async Task ImportAttributes_WhenImportAttributeFails_ThrowsException()
-    {
-        // Arrange
-        _clientAdapter.GetProjectAttributes().Returns(new List<TmsAttribute>());
-        _clientAdapter.GetRequiredProjectAttributesByProjectId(ProjectId).Returns(new List<TmsAttribute>());
-        _clientAdapter.ImportAttribute(_attributes[0])
-            .ThrowsAsync(new Exception("Failed to import attribute"));
-
-        // Act & Assert
-        var ex = Assert.ThrowsAsync<Exception>(
-            async () => await _attributeService.ImportAttributes(ProjectId, _attributes));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(ex!.Message, Is.EqualTo("Failed to import attribute"));
-            _clientAdapter.Received(1).ImportAttribute(_attributes[0]);
-            _clientAdapter.DidNotReceive().ImportAttribute(_attributes[1]);
-            _clientAdapter.DidNotReceive().UpdateAttribute(Arg.Any<TmsAttribute>());
-            _clientAdapter.DidNotReceive().AddAttributesToProject(ProjectId, Arg.Any<IEnumerable<Guid>>());
-        });
-    }
-
-    [Test]
-    public async Task ImportAttributes_WhenUpdateAttributeFails_ThrowsException()
-    {
-        // Arrange
-        _clientAdapter.GetProjectAttributes().Returns(new List<TmsAttribute> { _tmsAttributes[1] });
-        _clientAdapter.GetRequiredProjectAttributesByProjectId(ProjectId).Returns(new List<TmsAttribute>());
-        _clientAdapter.UpdateAttribute(_tmsAttributes[1])
-            .ThrowsAsync(new Exception("Failed to update attribute"));
-
-        // Act & Assert
-        var ex = Assert.ThrowsAsync<Exception>(
-            async () => await _attributeService.ImportAttributes(ProjectId, new[] { _attributes[1] }));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(ex!.Message, Is.EqualTo("Failed to update attribute"));
-            _clientAdapter.DidNotReceive().ImportAttribute(Arg.Any<Attribute>());
-            _clientAdapter.DidNotReceive().AddAttributesToProject(ProjectId, Arg.Any<IEnumerable<Guid>>());
-        });
-    }
-
-    [Test]
-    public async Task ImportAttributes_WhenUpdatingExistingAttribute_Success()
-    {
-        // Arrange
-        _clientAdapter.GetProjectAttributes().Returns(new List<TmsAttribute> { _tmsAttributes[1] });
-        _clientAdapter.GetRequiredProjectAttributesByProjectId(ProjectId).Returns(new List<TmsAttribute>());
-        _clientAdapter.UpdateAttribute(Arg.Any<TmsAttribute>()).Returns(_tmsAttributes[1]);
-        _clientAdapter.GetProjectAttributeById(_tmsAttributes[1].Id).Returns(_tmsAttributes[1]);
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProjectAttributes())
+            .ThrowsAsync(expectedException);
 
         // Act
-        var result = await _attributeService.ImportAttributes(ProjectId, new[] { _attributes[1] });
+        var actualException = Assert.ThrowsAsync<InvalidOperationException>(
+            () => _attributeService.ImportAttributes(_projectId, new List<Attribute> { _stringAttribute, _optionsAttribute }));
 
         // Assert
         Assert.Multiple(() =>
         {
-            _clientAdapter.DidNotReceive().ImportAttribute(Arg.Any<Attribute>());
-            _clientAdapter.Received().AddAttributesToProject(ProjectId, Arg.Any<IEnumerable<Guid>>());
+            Assert.That(actualException, Is.SameAs(expectedException));
+            _clientAdapterMock.Verify(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId), Times.Never);
+            _clientAdapterMock.Verify(adapter => adapter.ImportAttribute(It.IsAny<Attribute>()), Times.Never);
+            _clientAdapterMock.Verify(adapter => adapter.UpdateAttribute(It.IsAny<TmsAttribute>()), Times.Never);
 
-            Assert.That(result, Is.Not.Null, "Result dictionary should not be null");
-            Assert.That(result.Count, Is.EqualTo(1), "Dictionary should contain exactly one element");
-            Assert.That(result.ContainsKey(_attributes[1].Id), Is.True, "Dictionary should contain the correct attribute ID");
+            _clientAdapterMock.Verify(adapter => adapter.UpdateProjectAttribute(_projectId, It.IsAny<TmsAttribute>()), Times.Never);
+            _clientAdapterMock.Verify(adapter => adapter.AddAttributesToProject(_projectId, It.IsAny<IEnumerable<Guid>>()), Times.Never);
+        });
+    }
 
-            var resultAttribute = result[_attributes[1].Id];
-            Assert.That(resultAttribute, Is.Not.Null, "Result attribute should not be null");
+    [Test]
+    public void ImportAttributes_WhenImportAttributeFails_ThrowsException()
+    {
+        // Arrange
+        var expectedException = new ApplicationException("Failed to import attribute");
 
-            var expectedAttribute = _attributesMap[_attributes[1].Id];
-            Assert.That(expectedAttribute, Is.Not.Null, "Expected attribute should not be null");
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProjectAttributes())
+            .ReturnsAsync(new List<TmsAttribute>());
 
-            Assert.That(resultAttribute.Id, Is.EqualTo(expectedAttribute.Id), "Attribute IDs should match");
-            Assert.That(resultAttribute.Name, Is.EqualTo(expectedAttribute.Name), "Attribute names should match");
-            Assert.That(resultAttribute.Type, Is.EqualTo(expectedAttribute.Type), "Attribute types should match");
-            Assert.That(resultAttribute.IsRequired, Is.EqualTo(expectedAttribute.IsRequired), "IsRequired should match");
-            Assert.That(resultAttribute.IsEnabled, Is.EqualTo(expectedAttribute.IsEnabled), "IsEnabled should match");
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId))
+            .ReturnsAsync(new List<TmsAttribute>());
 
-            // Compare options
-            Assert.That(resultAttribute.Options, Is.Not.Null, "Options list should not be null");
-            Assert.That(resultAttribute.Options.Count, Is.EqualTo(expectedAttribute.Options.Count), "Options count should match");
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportAttribute(_stringAttribute))
+            .ThrowsAsync(expectedException);
+
+        // Act
+        var actualException = Assert.ThrowsAsync<ApplicationException>(
+            () => _attributeService.ImportAttributes(_projectId, new List<Attribute> { _stringAttribute, _optionsAttribute }));
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(actualException, Is.SameAs(expectedException));
+            _clientAdapterMock.Verify(adapter => adapter.ImportAttribute(_stringAttribute), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.ImportAttribute(_optionsAttribute), Times.Never);
+            _clientAdapterMock.Verify(adapter => adapter.UpdateAttribute(It.IsAny<TmsAttribute>()), Times.Never);
+
+            _clientAdapterMock.Verify(adapter => adapter.UpdateProjectAttribute(_projectId, It.IsAny<TmsAttribute>()), Times.Never);
+            _clientAdapterMock.Verify(adapter => adapter.AddAttributesToProject(_projectId, It.IsAny<IEnumerable<Guid>>()), Times.Never);
+        });
+    }
+
+    [Test]
+    public void ImportAttributes_WhenUpdateAttributeFails_ThrowsException()
+    {
+        // Arrange
+        var expectedException = new ApplicationException("Failed to update attribute");
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProjectAttributes())
+            .ReturnsAsync(new List<TmsAttribute> { _tmsOptionsAttribute });
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId))
+            .ReturnsAsync(new List<TmsAttribute>());
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.UpdateAttribute(It.IsAny<TmsAttribute>()))
+            .ThrowsAsync(expectedException);
+
+        // Act
+        var actualException = Assert.ThrowsAsync<ApplicationException>(
+            () => _attributeService.ImportAttributes(_projectId, new[] { _optionsAttribute }));
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(actualException, Is.SameAs(expectedException));
+            _clientAdapterMock.Verify(adapter => adapter.GetProjectAttributes(), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId), Times.Once);
+
+            _clientAdapterMock.Verify(adapter => adapter.ImportAttribute(It.IsAny<Attribute>()), Times.Never);
+            _clientAdapterMock.Verify(adapter => adapter.UpdateAttribute(It.IsAny<TmsAttribute>()), Times.Once);
+
+            _clientAdapterMock.Verify(adapter => adapter.UpdateProjectAttribute(_projectId, It.IsAny<TmsAttribute>()), Times.Never);
+            _clientAdapterMock.Verify(adapter => adapter.AddAttributesToProject(_projectId, It.IsAny<IEnumerable<Guid>>()), Times.Never);
+        });
+    }
+
+    [Test]
+    public async Task ImportAttributes_WhenUpdatingExistingOptionsAttribute_AddsMissingOptionsAndReturnsLatestVersion()
+    {
+        // Arrange
+        var existingAttribute = CloneAttribute(_tmsOptionsAttribute);
+        existingAttribute.Options = new List<TmsAttributeOptions>
+        {
+            new() { Id = Guid.NewGuid(), Value = "Option1", IsDefault = true }
+        };
+
+        var updatedAttribute = CloneAttribute(existingAttribute);
+        updatedAttribute.Options = new List<TmsAttributeOptions>
+        {
+            existingAttribute.Options[0],
+            new() { Id = Guid.NewGuid(), Value = "Option2", IsDefault = false }
+        };
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProjectAttributes())
+            .ReturnsAsync(new List<TmsAttribute> { existingAttribute });
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId))
+            .ReturnsAsync(new List<TmsAttribute>());
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.UpdateAttribute(It.IsAny<TmsAttribute>()))
+            .ReturnsAsync((TmsAttribute attribute) => attribute);
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProjectAttributeById(existingAttribute.Id))
+            .ReturnsAsync(updatedAttribute);
+
+        // Act
+        var result = await _attributeService.ImportAttributes(_projectId, new[] { _optionsAttribute });
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            _clientAdapterMock.Verify(adapter => adapter.ImportAttribute(It.IsAny<Attribute>()), Times.Never);
+            _clientAdapterMock.Verify(adapter => adapter.UpdateAttribute(It.Is<TmsAttribute>(attr =>
+                attr.Options.Count == 2 && attr.Options.Any(option => option.Value == "Option2"))), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.AddAttributesToProject(_projectId, It.Is<IEnumerable<Guid>>(ids =>
+                ids.Single() == existingAttribute.Id)), Times.Once);
+
+            _clientAdapterMock.Verify(adapter => adapter.GetProjectAttributes(), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.GetProjectAttributeById(existingAttribute.Id), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId), Times.Once);
+
+            Assert.That(result, Has.Count.EqualTo(1));
+            Assert.That(result.ContainsKey(_optionsAttribute.Id), Is.True);
+
+            var resultAttribute = result[_optionsAttribute.Id];
+            Assert.That(resultAttribute, Is.Not.Null);
+            Assert.That(resultAttribute.Id, Is.EqualTo(updatedAttribute.Id));
+            Assert.That(resultAttribute.Name, Is.EqualTo(updatedAttribute.Name));
+            Assert.That(resultAttribute.Type, Is.EqualTo(updatedAttribute.Type));
+            Assert.That(resultAttribute.IsRequired, Is.EqualTo(updatedAttribute.IsRequired));
+            Assert.That(resultAttribute.IsEnabled, Is.EqualTo(updatedAttribute.IsEnabled));
+            Assert.That(resultAttribute.Options, Is.Not.Null);
+            Assert.That(resultAttribute.Options.Count, Is.EqualTo(updatedAttribute.Options.Count));
             for (var i = 0; i < resultAttribute.Options.Count; i++)
             {
-                Assert.That(resultAttribute.Options[i], Is.Not.Null, $"Option {i} should not be null");
-                Assert.That(resultAttribute.Options[i].Value, Is.EqualTo(expectedAttribute.Options[i].Value), $"Option {i} value should match");
-                Assert.That(resultAttribute.Options[i].IsDefault, Is.EqualTo(expectedAttribute.Options[i].IsDefault), $"Option {i} IsDefault should match");
+                Assert.That(resultAttribute.Options[i].Value, Is.EqualTo(updatedAttribute.Options[i].Value));
+                Assert.That(resultAttribute.Options[i].IsDefault, Is.EqualTo(updatedAttribute.Options[i].IsDefault));
             }
         });
     }
 
     [Test]
-    public async Task ImportAttributes_WhenImportingNewAttributes_Success()
+    public async Task ImportAttributes_WhenImportingNewAttributes_ReturnsImportedAttributesMap()
     {
         // Arrange
-        _clientAdapter.GetProjectAttributes().Returns(new List<TmsAttribute>());
-        _clientAdapter.GetRequiredProjectAttributesByProjectId(ProjectId).Returns(new List<TmsAttribute>());
-        _clientAdapter.ImportAttribute(_attributes[1]).Returns(_attributesMap[_attributes[1].Id]);
-        _clientAdapter.GetAttribute(_attributesMap[_attributes[1].Id].Id).Returns(_attributesMap[_attributes[1].Id]);
-        _clientAdapter.ImportAttribute(_attributes[0]).Returns(_attributesMap[_attributes[0].Id]);
-        _clientAdapter.GetAttribute(_attributesMap[_attributes[0].Id].Id).Returns(_attributesMap[_attributes[0].Id]);
+        var importedStringAttribute = CloneAttribute(_tmsStringAttribute);
+        var importedOptionsAttribute = CloneAttribute(_tmsOptionsAttribute);
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProjectAttributes())
+            .ReturnsAsync(new List<TmsAttribute>());
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId))
+            .ReturnsAsync(new List<TmsAttribute>());
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportAttribute(_stringAttribute))
+            .ReturnsAsync(importedStringAttribute);
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportAttribute(_optionsAttribute))
+            .ReturnsAsync(importedOptionsAttribute);
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetAttribute(importedStringAttribute.Id))
+            .ReturnsAsync(importedStringAttribute);
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetAttribute(importedOptionsAttribute.Id))
+            .ReturnsAsync(importedOptionsAttribute);
 
         // Act
-        var result = await _attributeService.ImportAttributes(ProjectId, _attributes);
+        var result = await _attributeService.ImportAttributes(_projectId, new List<Attribute> { _stringAttribute, _optionsAttribute });
 
         // Assert
         Assert.Multiple(() =>
         {
-            _clientAdapter.DidNotReceive().UpdateAttribute(Arg.Any<TmsAttribute>());
-            _clientAdapter.Received().AddAttributesToProject(ProjectId, Arg.Any<IEnumerable<Guid>>());
-            Assert.That(result, Is.EqualTo(_attributesMap));
+            _clientAdapterMock.Verify(adapter => adapter.GetProjectAttributes(), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.ImportAttribute(_stringAttribute), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.ImportAttribute(_optionsAttribute), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.GetAttribute(importedStringAttribute.Id), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.GetAttribute(importedOptionsAttribute.Id), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.UpdateAttribute(It.IsAny<TmsAttribute>()), Times.Never);
+            _clientAdapterMock.Verify(adapter => adapter.AddAttributesToProject(_projectId, It.Is<IEnumerable<Guid>>(ids =>
+                ids.Contains(importedStringAttribute.Id) && ids.Contains(importedOptionsAttribute.Id))), Times.Once);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Count, Is.EqualTo(2));
+            Assert.That(result.ContainsKey(_stringAttribute.Id), Is.True);
+            Assert.That(result.ContainsKey(_optionsAttribute.Id), Is.True);
+
+            var stringResult = result[_stringAttribute.Id];
+            Assert.That(stringResult.Id, Is.EqualTo(importedStringAttribute.Id));
+            Assert.That(stringResult.Name, Is.EqualTo(importedStringAttribute.Name));
+            Assert.That(stringResult.Type, Is.EqualTo(importedStringAttribute.Type));
+            Assert.That(stringResult.IsRequired, Is.EqualTo(importedStringAttribute.IsRequired));
+            Assert.That(stringResult.IsEnabled, Is.EqualTo(importedStringAttribute.IsEnabled));
+            Assert.That(stringResult.Options, Is.Not.Null);
+            Assert.That(stringResult.Options.Count, Is.EqualTo(importedStringAttribute.Options.Count));
+
+            var optionsResult = result[_optionsAttribute.Id];
+            Assert.That(optionsResult.Id, Is.EqualTo(importedOptionsAttribute.Id));
+            Assert.That(optionsResult.Name, Is.EqualTo(importedOptionsAttribute.Name));
+            Assert.That(optionsResult.Type, Is.EqualTo(importedOptionsAttribute.Type));
+            Assert.That(optionsResult.IsRequired, Is.EqualTo(importedOptionsAttribute.IsRequired));
+            Assert.That(optionsResult.IsEnabled, Is.EqualTo(importedOptionsAttribute.IsEnabled));
+            Assert.That(optionsResult.Options, Is.Not.Null);
+            Assert.That(optionsResult.Options.Count, Is.EqualTo(importedOptionsAttribute.Options.Count));
+            for (var i = 0; i < optionsResult.Options.Count; i++)
+            {
+                Assert.That(optionsResult.Options[i].Value, Is.EqualTo(importedOptionsAttribute.Options[i].Value));
+                Assert.That(optionsResult.Options[i].IsDefault, Is.EqualTo(importedOptionsAttribute.Options[i].IsDefault));
+            }
         });
     }
 
     [Test]
-    public async Task ImportAttributes_WhenImportingAttributeWithNewName_Success()
+    public async Task ImportAttributes_WhenTypeMismatchRequiresRenaming_RenamesUntilUniqueAndImports()
     {
         // Arrange
-        var existingAttributes = new List<TmsAttribute> { _tmsAttributes[0] };
-        existingAttributes[0].Type = "data";
-        _clientAdapter.GetProjectAttributes().Returns(existingAttributes);
-        _clientAdapter.GetRequiredProjectAttributesByProjectId(ProjectId).Returns(new List<TmsAttribute>());
+        var baseName = _stringAttribute.Name;
+        var expectedImportedName = $"{baseName} (2)";
 
-        var newAttribute = new Attribute
-        {
-            Id = _attributes[0].Id,
-            Name = "TestAttribute (1)",
-            IsActive = _attributes[0].IsActive,
-            IsRequired = _attributes[0].IsRequired,
-            Type = _attributes[0].Type,
-            Options = _attributes[0].Options
-        };
+        var conflictingAttribute = CloneAttribute(_tmsStringAttribute, name: baseName, type: "Options");
+        var conflictingFirstRename = CloneAttribute(_tmsStringAttribute, name: $"{baseName} (1)", type: "Options");
 
-        var expectedTmsAttribute = new TmsAttribute
-        {
-            Id = _tmsAttributes[0].Id,
-            Name = "TestAttribute (1)",
-            IsRequired = _tmsAttributes[0].IsRequired,
-            IsEnabled = _tmsAttributes[0].IsEnabled,
-            Type = _tmsAttributes[0].Type,
-            Options = _tmsAttributes[0].Options
-        };
+        var importedAttribute = CloneAttribute(_tmsStringAttribute, id: Guid.NewGuid(), name: expectedImportedName);
 
-        // Setup mock for original attribute first
-        _clientAdapter.ImportAttribute(_attributes[0]).Returns(expectedTmsAttribute);
-        _clientAdapter.GetAttribute(expectedTmsAttribute.Id).Returns(expectedTmsAttribute);
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProjectAttributes())
+            .ReturnsAsync(new List<TmsAttribute> { conflictingAttribute, conflictingFirstRename });
 
-        // Then setup mock for renamed attribute
-        _clientAdapter.ImportAttribute(newAttribute).Returns(expectedTmsAttribute);
-        _clientAdapter.GetAttribute(expectedTmsAttribute.Id).Returns(expectedTmsAttribute);
-        _clientAdapter.GetProjectAttributeById(expectedTmsAttribute.Id).Returns(expectedTmsAttribute);
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId))
+            .ReturnsAsync(new List<TmsAttribute>());
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportAttribute(It.Is<Attribute>(attr => attr.Name == expectedImportedName)))
+            .ReturnsAsync(importedAttribute);
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetAttribute(importedAttribute.Id))
+            .ReturnsAsync(importedAttribute);
 
         // Act
-        var result = await _attributeService.ImportAttributes(ProjectId, new[] { _attributes[0] });
+        var result = await _attributeService.ImportAttributes(_projectId, new[] { _stringAttribute });
 
         // Assert
-        var expectedMap = new Dictionary<Guid, TmsAttribute> { { _attributes[0].Id, expectedTmsAttribute } };
-
         Assert.Multiple(() =>
         {
-            _clientAdapter.DidNotReceive().UpdateAttribute(Arg.Any<TmsAttribute>());
-            _clientAdapter.Received().AddAttributesToProject(ProjectId, Arg.Any<IEnumerable<Guid>>());
-            Assert.That(result, Is.EqualTo(expectedMap));
+            _clientAdapterMock.Verify(adapter => adapter.GetProjectAttributes(), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.ImportAttribute(It.Is<Attribute>(attr =>
+                attr.Name == expectedImportedName && attr.Id == _stringAttribute.Id)), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.AddAttributesToProject(_projectId, It.Is<IEnumerable<Guid>>(ids =>
+                ids.Single() == importedAttribute.Id)), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.GetAttribute(importedAttribute.Id), Times.Once);
+
+            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(result.ContainsKey(_stringAttribute.Id), Is.True);
+
+            var renamedResult = result[_stringAttribute.Id];
+            Assert.That(renamedResult.Id, Is.EqualTo(importedAttribute.Id));
+            Assert.That(renamedResult.Name, Is.EqualTo(importedAttribute.Name));
+            Assert.That(renamedResult.Type, Is.EqualTo(importedAttribute.Type));
+            Assert.That(renamedResult.IsRequired, Is.EqualTo(importedAttribute.IsRequired));
+            Assert.That(renamedResult.IsEnabled, Is.EqualTo(importedAttribute.IsEnabled));
         });
     }
+
+    [Test]
+    public async Task ImportAttributes_WhenUnusedRequiredAttributesRemain_MarksThemAsOptional()
+    {
+        // Arrange
+        var unusedAttributes = new List<TmsAttribute>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Unused1",
+                IsRequired = true,
+                Type = "String"
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Unused2",
+                IsRequired = true,
+                Type = "Options"
+            }
+        };
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProjectAttributes())
+            .ReturnsAsync(new List<TmsAttribute>());
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId))
+            .ReturnsAsync(unusedAttributes);
+
+        // Act
+        var result = await _attributeService.ImportAttributes(_projectId, Array.Empty<Attribute>());
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            _clientAdapterMock.Verify(adapter => adapter.GetProjectAttributes(), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.UpdateProjectAttribute(_projectId, It.IsAny<TmsAttribute>()), Times.Exactly(2));
+            _clientAdapterMock.Verify(adapter => adapter.AddAttributesToProject(_projectId, It.IsAny<IEnumerable<Guid>>()), Times.Never);
+
+            Assert.That(unusedAttributes.All(attr => attr.IsRequired == false), Is.True);
+            Assert.That(result, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task ImportAttributes_WhenRequiredAttributeIsUsed_DoesNotUpdateProjectAttribute()
+    {
+        // Arrange
+        var requiredAttributeToRemove = CloneAttribute(_tmsStringAttribute, id: Guid.NewGuid(), name: _stringAttribute.Name, type: _stringAttribute.Type.ToString());
+        var stillRequiredAttribute = CloneAttribute(_tmsOptionsAttribute, id: Guid.NewGuid(), name: "StillRequired", type: "Options");
+
+        var requiredAttributes = new List<TmsAttribute> { requiredAttributeToRemove, stillRequiredAttribute };
+
+        var importedAttribute = CloneAttribute(_tmsStringAttribute);
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProjectAttributes())
+            .ReturnsAsync(new List<TmsAttribute>());
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId))
+            .ReturnsAsync(requiredAttributes);
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.ImportAttribute(_stringAttribute))
+            .ReturnsAsync(importedAttribute);
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetAttribute(importedAttribute.Id))
+            .ReturnsAsync(importedAttribute);
+
+        // Act
+        var result = await _attributeService.ImportAttributes(_projectId, new[] { _stringAttribute });
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            _clientAdapterMock.Verify(adapter => adapter.GetProjectAttributes(), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.UpdateProjectAttribute(_projectId, stillRequiredAttribute), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.UpdateProjectAttribute(_projectId, requiredAttributeToRemove), Times.Never);
+            _clientAdapterMock.Verify(adapter => adapter.AddAttributesToProject(_projectId, It.Is<IEnumerable<Guid>>(ids =>
+                ids.Single() == importedAttribute.Id)), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.GetAttribute(importedAttribute.Id), Times.Once);
+
+            Assert.That(requiredAttributes, Does.Not.Contain(requiredAttributeToRemove));
+            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(result.ContainsKey(_stringAttribute.Id), Is.True);
+
+            var resultAttribute = result[_stringAttribute.Id];
+            Assert.That(resultAttribute.Id, Is.EqualTo(importedAttribute.Id));
+            Assert.That(resultAttribute.Name, Is.EqualTo(importedAttribute.Name));
+            Assert.That(resultAttribute.Type, Is.EqualTo(importedAttribute.Type));
+            Assert.That(resultAttribute.IsRequired, Is.EqualTo(importedAttribute.IsRequired));
+            Assert.That(resultAttribute.IsEnabled, Is.EqualTo(importedAttribute.IsEnabled));
+        });
+    }
+
+    [Test]
+    public async Task ImportAttributes_WhenNoAttributesProvided_DoesNotCallAddAttributesToProject()
+    {
+        // Arrange
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetProjectAttributes())
+            .ReturnsAsync(new List<TmsAttribute>());
+
+        _clientAdapterMock
+            .Setup(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId))
+            .ReturnsAsync(new List<TmsAttribute>());
+
+        // Act
+        var result = await _attributeService.ImportAttributes(_projectId, Array.Empty<Attribute>());
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            _clientAdapterMock.Verify(adapter => adapter.GetProjectAttributes(), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.AddAttributesToProject(_projectId, It.IsAny<IEnumerable<Guid>>()), Times.Never);
+            _clientAdapterMock.Verify(adapter => adapter.GetRequiredProjectAttributesByProjectId(_projectId), Times.Once);
+            _clientAdapterMock.Verify(adapter => adapter.UpdateProjectAttribute(_projectId, It.IsAny<TmsAttribute>()), Times.Never);
+            Assert.That(result, Is.Empty);
+        });
+    }
+
+    private static TmsAttribute CloneAttribute(
+        TmsAttribute source,
+        Guid? id = null,
+        string? name = null,
+        string? type = null)
+    {
+        return new TmsAttribute
+        {
+            Id = id ?? source.Id,
+            Name = name ?? source.Name,
+            IsRequired = source.IsRequired,
+            IsEnabled = source.IsEnabled,
+            Type = type ?? source.Type,
+            Options = source.Options?.Select(option => new TmsAttributeOptions
+            {
+                Id = option.Id,
+                Value = option.Value,
+                IsDefault = option.IsDefault
+            }).ToList() ?? new List<TmsAttributeOptions>()
+        };
+    }
 }
+
