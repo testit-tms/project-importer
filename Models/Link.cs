@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Web;
 
 namespace Models;
 
@@ -16,4 +17,6 @@ public class Link
 
     [JsonPropertyName("type")]
     public LinkType Type { get; set; }
+
+    public string GetUrlEncode() => HttpUtility.UrlPathEncode(Url);
 }
