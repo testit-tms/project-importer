@@ -238,7 +238,7 @@ public class ClientAdapter(
                         a => a.Value),
                 Tags = sharedStep.Tags.Select(t => new TagModel(t)).ToList(),
                 Links = sharedStep.Links.Select(l =>
-                    new CreateLinkApiModel(url: l.Url)
+                    new CreateLinkApiModel(url: l.GetUrlEncode())
                     {
                         Title = l.Title,
                         Description = l.Description,
@@ -342,7 +342,7 @@ public class ClientAdapter(
                 Attributes = attributes,
                 Tags = testCase.Tags.Select(t => new TagModel(t)).ToList(),
                 Links = testCase.Links.Select(l =>
-                    new CreateLinkApiModel(url: l.Url)
+                    new CreateLinkApiModel(url: l.GetUrlEncode())
                     {
                         Title = l.Title,
                         Description = l.Description,

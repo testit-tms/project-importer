@@ -484,7 +484,7 @@ namespace ImporterTests
 
             _sectionsApiMock.Verify(
                 x => x.CreateSectionAsync(
-                    It.Is<SectionPostModel>(m => 
+                    It.Is<SectionPostModel>(m =>
                         m.Name == sectionName &&
                         m.ProjectId == projectId &&
                         m.ParentId == parentSectionId),
@@ -894,7 +894,8 @@ namespace ImporterTests
                 },
                 Links = new List<Models.Link>()
                 {
-                    new Models.Link{ Title = "TitleLink", Type = Models.LinkType.Related, Url = "TestUrl" }
+                    new Models.Link{ Title = "TitleLink", Type = Models.LinkType.Related, Url = "TestUrl" },
+                    new Models.Link{ Url = "https://example.com/my page.html" }
                 },
                 Tags = new List<string> { "tag1", "tag2" },
                 Attachments = new List<string>()
@@ -956,7 +957,8 @@ namespace ImporterTests
                         m.Steps.Count == 1 &&
                         m.Tags.Count == 2 &&
                         m.Attributes.Count == 1 &&
-                        m.Links.Count == 1),
+                        m.Links.Count == 2 &&
+                        m.Links[1].Url == "https://example.com/my%20page.html"),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -1043,7 +1045,8 @@ namespace ImporterTests
                 Tags = new List<string> { "tag1", "tag2" },
                 Links = new List<Models.Link>
                 {
-                    new Models.Link { Url = "http://example.com", Title = "Example", Description = "Link", Type = Models.LinkType.Related }
+                    new Models.Link { Url = "http://example.com", Title = "Example", Description = "Link", Type = Models.LinkType.Related },
+                    new Models.Link{ Url = "https://example.com/my page.html" }
                 },
                 Attachments = new List<string> { Guid.NewGuid().ToString() },
                 TmsIterations = new List<TmsIterations>
@@ -1110,7 +1113,8 @@ namespace ImporterTests
                         m.PostconditionSteps.Count == 1 &&
                         m.Tags.Count == 2 &&
                         m.Attributes.Count == 3 &&
-                        m.Links.Count == 1 &&
+                        m.Links.Count == 2 &&
+                        m.Links[1].Url == "https://example.com/my%20page.html" &&
                         m.Attachments.Count == 1 &&
                         m.Duration == 60000),
                     It.IsAny<CancellationToken>()),
@@ -1583,7 +1587,7 @@ namespace ImporterTests
                 _customAttributesApiMock.Verify(
                     x => x.ApiV2CustomAttributesGlobalIdPutAsync(
                         attributeId,
-                        It.Is<GlobalCustomAttributeUpdateModel>(m => 
+                        It.Is<GlobalCustomAttributeUpdateModel>(m =>
                             m.Name == attributeName &&
                             m.IsEnabled == true &&
                             m.IsRequired == false &&
@@ -1658,7 +1662,7 @@ namespace ImporterTests
             _projectAttributesApiMock.Verify(
                 x => x.UpdateProjectsAttributeAsync(
                     projectId.ToString(),
-                    It.Is<CustomAttributePutModel>(m => 
+                    It.Is<CustomAttributePutModel>(m =>
                         m.Id == attribute.Id &&
                         m.Name == attribute.Name &&
                         m.IsEnabled == attribute.IsEnabled &&
@@ -2058,6 +2062,6 @@ namespace ImporterTests
         }
 
         #endregion
-        
+
     }
 }
