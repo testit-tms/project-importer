@@ -7,13 +7,58 @@ using Models;
 namespace Importer.Services;
 
 internal class BaseWorkItemService(
-    ILogger<BaseWorkItemService> logger, 
+    ILogger<BaseWorkItemService> logger,
     IClientAdapter clientAdapter)
     : IBaseWorkItemService
 {
     private const string OptionsType = "options"; // one value
     private const string MultipleOptionsType = "multipleOptions"; // array of values
     private const string Checkbox = "checkbox"; // true / false
+
+    private static List<string> GetMultipleOptions(object? value)
+    {
+        if (value is null)
+            return [];
+
+        if (value is JsonElement jsonElement)
+        {
+            return jsonElement.ValueKind switch
+            {
+                JsonValueKind.Array => jsonElement.EnumerateArray()
+                    .Select(e => e.ValueKind == JsonValueKind.String ? (e.GetString() ?? string.Empty) : e.ToString())
+                    .ToList(),
+                JsonValueKind.String => GetMultipleOptions(jsonElement.GetString()),
+                JsonValueKind.Null or JsonValueKind.Undefined => [],
+                _ => [jsonElement.ToString()]
+            };
+        }
+
+        if (value is IEnumerable<string> enumerable && value is not string)
+            return enumerable.ToList();
+
+        if (value is string s)
+        {
+            if (string.IsNullOrWhiteSpace(s))
+                return [];
+
+            var trimmed = s.Trim();
+            if (trimmed.StartsWith('[') && trimmed.EndsWith(']'))
+            {
+                try
+                {
+                    return JsonSerializer.Deserialize<List<string>>(trimmed) ?? [];
+                }
+                catch (JsonException)
+                {
+                    // fall back to treating it as a single option string
+                }
+            }
+
+            return [s];
+        }
+
+        return GetMultipleOptions(value.ToString());
+    }
 
     public async Task<List<CaseAttribute>> ConvertAttributes(IEnumerable<CaseAttribute> attributes,
         Dictionary<Guid, TmsAttribute> tmsAttributes)
@@ -38,20 +83,23 @@ internal class BaseWorkItemService(
             var result = tmsAttribute.Options.FirstOrDefault(o => o.Value == caseAttribute.Value.ToString())?.Id.ToString()!;
             return (result, tmsAttribute);
         }
-            
+
         if (string.Equals(tmsAttribute.Type, MultipleOptionsType, StringComparison.InvariantCultureIgnoreCase))
         {
             var ids = new List<string>();
-            var options = JsonSerializer.Deserialize<List<string>>(caseAttribute.Value.ToString()!)!;
+            var options = GetMultipleOptions(caseAttribute.Value);
 
             foreach (var option in options)
             {
+                if (string.IsNullOrWhiteSpace(option))
+                    continue;
+
                 var foundValue = tmsAttribute.Options.FirstOrDefault(o => o.Value == option);
                 if (foundValue != null)
                 {
-                    ids.Add(foundValue.Id.ToString());    
+                    ids.Add(foundValue.Id.ToString());
                 }
-                else if (option != "")
+                else
                 {
                     var logMessage = $"Option ${option} not found in ${tmsAttribute.Id} ${tmsAttribute.Name} " +
                                      $"- add it dynamically";
@@ -63,10 +111,12 @@ internal class BaseWorkItemService(
                     });
                     await clientAdapter.UpdateAttribute(tmsAttribute);
                     tmsAttribute = await clientAdapter.GetProjectAttributeById(tmsAttribute.Id);
-                    ids.Add(option);    
+
+                    var createdValue = tmsAttribute.Options.FirstOrDefault(o => o.Value == option);
+                    ids.Add(createdValue?.Id.ToString() ?? option);
                 }
             }
-                
+
             return (ids, tmsAttribute);
         }
 
@@ -147,7 +197,7 @@ internal class BaseWorkItemService(
 
             return source;
         }
-        
+
         if (source.Contains($"<<<{attachName}>>>"))
         {
             source = source.Replace($"<<<{attachName}>>>", $"%%%{attachName}%%%");
