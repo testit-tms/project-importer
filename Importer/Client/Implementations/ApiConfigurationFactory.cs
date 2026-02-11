@@ -18,7 +18,7 @@ public class ApiConfigurationFactory(
         var cfg = new Configuration { BasePath = url.TrimEnd('/') };
         cfg.AddApiKeyPrefix("Authorization", "PrivateToken");
         cfg.AddApiKey("Authorization", token);
-        cfg.Timeout = (int)timeout.TotalMilliseconds;
+        cfg.Timeout = timeout;
 
         return cfg;
     }
