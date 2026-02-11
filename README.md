@@ -10,7 +10,7 @@ You can use this Importer to import your test cases to Test IT.
 | 5.4     | 2.2.0-TMS-5.4.1  |
 | 5.5     | 2.2.2-TMS-5.5    |
 | 5.6     | 2.2.6-TMS-5.6    |
-| Cloud   | 2.2.3            |
+| Cloud   | 2.2.6            |
 
 Note: you can find versions for TMS before 5.3 release [there](https://github.com/testit-tms/migrators/tags?after=2.0.0-TMS-5.3)
 
