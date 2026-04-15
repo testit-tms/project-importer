@@ -25,6 +25,10 @@ public class ClientAdapter(
 ) : IClientAdapter
 {
     private const int TenMinutes = 60000;
+    private static LinkType GetLinkTypeOrDefault(global::Models.LinkType type) =>
+        Enum.IsDefined(typeof(global::Models.LinkType), type)
+            ? Enum.Parse<LinkType>(type.ToString())
+            : LinkType.Related;
 
 
     public async Task<Guid> GetProject(string name)
@@ -242,7 +246,7 @@ public class ClientAdapter(
                     {
                         Title = l.Title,
                         Description = l.Description,
-                        Type = Enum.Parse<LinkType>(l.Type.ToString())
+                        Type = GetLinkTypeOrDefault(l.Type)
                     }).ToList(),
                 Name = sharedStep.Name,
                 ProjectId = projectId,
@@ -346,7 +350,7 @@ public class ClientAdapter(
                     {
                         Title = l.Title,
                         Description = l.Description,
-                        Type = Enum.Parse<LinkType>(l.Type.ToString())
+                        Type = GetLinkTypeOrDefault(l.Type)
                     }).ToList(),
                 Name = testCase.Name,
                 ProjectId = projectId,
