@@ -324,13 +324,13 @@ namespace ImporterTests
             var projectName = "TestProject";
             var projectId = Guid.NewGuid();
 
-            var projectModel = new ProjectModel(
+            var projectModel = new ProjectApiResult(
                 id: projectId,
                 description: "",
                 name: projectName,
                 isFavorite: false,
-                attributesScheme: new List<CustomAttributeModel>(),
-                testPlansAttributesScheme: new List<CustomAttributeModel>(),
+                attributesScheme: new List<CustomAttributeApiResult>(),
+                testPlansAttributesScheme: new List<CustomAttributeApiResult>(),
                 testCasesCount: 0,
                 sharedStepsCount: 0,
                 checkListsCount: 0,
@@ -341,7 +341,7 @@ namespace ImporterTests
                 createdById: Guid.NewGuid(),
                 modifiedById: null,
                 globalId: 1,
-                type: new ProjectTypeModel());
+                type: new ProjectType());
 
             _appConfigMock.Setup(x => x.Value).Returns(new AppConfig { });
 
@@ -373,13 +373,13 @@ namespace ImporterTests
             var requestedProjectName = "DifferentName";
             var projectId = Guid.NewGuid();
 
-            var projectModel = new ProjectModel(
+            var projectModel = new ProjectApiResult(
                 id: projectId,
                 description: "",
                 name: customProjectName,
                 isFavorite: false,
-                attributesScheme: new List<CustomAttributeModel>(),
-                testPlansAttributesScheme: new List<CustomAttributeModel>(),
+                attributesScheme: new List<CustomAttributeApiResult>(),
+                testPlansAttributesScheme: new List<CustomAttributeApiResult>(),
                 testCasesCount: 0,
                 sharedStepsCount: 0,
                 checkListsCount: 0,
@@ -390,7 +390,7 @@ namespace ImporterTests
                 createdById: Guid.NewGuid(),
                 modifiedById: null,
                 globalId: 1,
-                type: new ProjectTypeModel());
+                type: new ProjectType());
 
             _appConfigMock.Setup(x => x.Value).Returns(new AppConfig
             {
