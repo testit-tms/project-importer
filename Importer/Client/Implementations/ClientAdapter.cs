@@ -1,6 +1,11 @@
 using Importer.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Collections;
+using System.Net;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using Models;
 using TestIT.ApiClient.Api;
 using TestIT.ApiClient.Client;
@@ -25,10 +30,85 @@ public class ClientAdapter(
 ) : IClientAdapter
 {
     private const int TenMinutes = 60000;
+    private static readonly HashSet<string> SanitizeExcludedFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ExternalId",
+        "AutoTestExternalId"
+    };
+    private static readonly Regex HtmlTagRegex = new(
+        "<[a-zA-Z!/][^<>\"']*(?:\"[^\"]*\"[^<>\"']*|'[^']*'[^<>\"']*)*>",
+        RegexOptions.Compiled);
     private static LinkType GetLinkTypeOrDefault(global::Models.LinkType type) =>
         Enum.IsDefined(typeof(global::Models.LinkType), type)
             ? Enum.Parse<LinkType>(type.ToString())
             : LinkType.Related;
+    private static string SanitizeText(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return value ?? string.Empty;
+
+        return HtmlTagRegex.Replace(value, match => WebUtility.HtmlEncode(match.Value));
+    }
+    private static void SanitizeModelStrings(object? model)
+    {
+        if (model == null)
+            return;
+
+        SanitizeObject(model, new HashSet<object>(ReferenceEqualityComparer.Instance));
+    }
+    private static void SanitizeObject(object model, HashSet<object> visited)
+    {
+        var type = model.GetType();
+        if (type == typeof(string) || type.IsPrimitive || type.IsEnum || model is decimal || model is Guid || model is DateTime)
+            return;
+
+        if (!visited.Add(model))
+            return;
+
+        if (model is IDictionary dictionary)
+        {
+            var keys = dictionary.Keys.Cast<object>().ToList();
+            foreach (var key in keys)
+            {
+                var value = dictionary[key];
+                if (value is string s)
+                    dictionary[key] = SanitizeText(s);
+                else if (value != null)
+                    SanitizeObject(value, visited);
+            }
+
+            return;
+        }
+
+        if (model is IEnumerable enumerable)
+        {
+            foreach (var item in enumerable)
+                if (item != null)
+                    SanitizeObject(item, visited);
+            return;
+        }
+
+        foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (!property.CanRead || property.GetIndexParameters().Length > 0)
+                continue;
+
+            var value = property.GetValue(model);
+            if (value == null)
+                continue;
+
+            if (value is string str)
+            {
+                if (!property.CanWrite || SanitizeExcludedFields.Contains(property.Name))
+                    continue;
+
+                property.SetValue(model, SanitizeText(str));
+                continue;
+            }
+
+            SanitizeObject(value, visited);
+        }
+    }
 
 
     public async Task<Guid> GetProject(string name)
@@ -82,7 +162,9 @@ public class ClientAdapter(
 
         try
         {
-            var resp = await projectsApi.CreateProjectAsync(new CreateProjectApiModel(name: name));
+            var model = new CreateProjectApiModel(name: name);
+            SanitizeModelStrings(model);
+            var resp = await projectsApi.CreateProjectAsync(model);
 
             logger.LogDebug("Created project {@Project}", resp);
             logger.LogInformation("Created project {Name} with id {Id}", name, resp.Id);
@@ -107,15 +189,16 @@ public class ClientAdapter(
             {
                 PostconditionSteps = section.PostconditionSteps.Select(s => new StepPostModel
                 {
-                    Action = s.Action,
-                    Expected = s.Expected
+                    Action = SanitizeText(s.Action),
+                    Expected = SanitizeText(s.Expected)
                 }).ToList(),
                 PreconditionSteps = section.PreconditionSteps.Select(s => new StepPostModel
                 {
-                    Action = s.Action,
-                    Expected = s.Expected
+                    Action = SanitizeText(s.Action),
+                    Expected = SanitizeText(s.Expected)
                 }).ToList()
             };
+            SanitizeModelStrings(model);
 
             logger.LogDebug("Importing section {@Section}", model);
 
@@ -151,6 +234,7 @@ public class ClientAdapter(
                     || model.Type == CustomAttributeTypesEnum.MultipleOptions
                 ))
                 model.Options.Add(new CustomAttributeOptionPostModel("null"));
+            SanitizeModelStrings(model);
 
             logger.LogDebug("Importing attribute {@Attribute}", model);
 
@@ -234,8 +318,8 @@ public class ClientAdapter(
                 Steps = sharedStep.Steps.Select(s =>
                     new CreateStepApiModel
                     {
-                        Action = s.Action,
-                        Expected = s.Expected
+                        Action = SanitizeText(s.Action),
+                        Expected = SanitizeText(s.Expected)
                     }).ToList(),
                 Attributes = sharedStep.Attributes
                     .ToDictionary(a => a.Id.ToString(),
@@ -252,6 +336,7 @@ public class ClientAdapter(
                 ProjectId = projectId,
                 Attachments = sharedStep.Attachments.Select(a => new AssignAttachmentApiModel(Guid.Parse(a))).ToList()
             };
+            SanitizeModelStrings(model);
 
             logger.LogDebug("Importing shared step {Name} and {@Model}", sharedStep.Name, model);
 
@@ -326,22 +411,22 @@ public class ClientAdapter(
                 PreconditionSteps = testCase.PreconditionSteps.Select(s =>
                     new CreateStepApiModel
                     {
-                        Action = s.Action,
-                        Expected = s.Expected
+                        Action = SanitizeText(s.Action),
+                        Expected = SanitizeText(s.Expected)
                     }).ToList(),
                 PostconditionSteps = testCase.PostconditionSteps.Select(s =>
                     new CreateStepApiModel
                     {
-                        Action = s.Action,
-                        Expected = s.Expected
+                        Action = SanitizeText(s.Action),
+                        Expected = SanitizeText(s.Expected)
                     }).ToList(),
                 Steps = testCase.Steps.Select(s =>
                     new CreateStepApiModel
                     {
-                        Action = s.Action,
-                        Expected = s.Expected,
+                        Action = SanitizeText(s.Action),
+                        Expected = SanitizeText(s.Expected),
                         WorkItemId = s.SharedStepId,
-                        TestData = s.TestData
+                        TestData = SanitizeText(s.TestData)
                     }).ToList(),
                 Attributes = attributes,
                 Tags = testCase.Tags.Select(t => new TagModel(t)).ToList(),
@@ -363,6 +448,7 @@ public class ClientAdapter(
                 Duration = testCase.Duration == 0 ? TenMinutes : testCase.Duration,
                 Description = testCase.Description
             };
+            SanitizeModelStrings(model);
 
             logger.LogDebug("Importing test case {Name} and {@Model}", testCase.Name, model);
 
@@ -558,6 +644,7 @@ public class ClientAdapter(
                     IsDefault = o.IsDefault
                 }).ToList()
             };
+            SanitizeModelStrings(model);
 
             logger.LogDebug("Updating attribute {@Model}", model);
 
@@ -603,6 +690,7 @@ public class ClientAdapter(
                     IsDefault = o.IsDefault
                 }).ToList()
             };
+            SanitizeModelStrings(model);
 
             logger.LogDebug("Updating attribute {@Model}", model);
 
@@ -663,6 +751,7 @@ public class ClientAdapter(
             }
             var model = new CreateParameterApiModel(name: parameter.Name,
                 value: parameter.Value);
+            SanitizeModelStrings(model);
 
             logger.LogDebug("Creating parameter {@Model}", model);
 
@@ -726,15 +815,16 @@ public class ClientAdapter(
             {
                 PostconditionSteps = section.PostconditionSteps.Select(s => new StepPostModel
                 {
-                    Action = s.Action,
-                    Expected = s.Expected
+                    Action = SanitizeText(s.Action),
+                    Expected = SanitizeText(s.Expected)
                 }).ToList(),
                 PreconditionSteps = section.PreconditionSteps.Select(s => new StepPostModel
                 {
-                    Action = s.Action,
-                    Expected = s.Expected
+                    Action = SanitizeText(s.Action),
+                    Expected = SanitizeText(s.Expected)
                 }).ToList()
             };
+            SanitizeModelStrings(model);
 
             logger.LogDebug("Importing section {@Section}", model);
 

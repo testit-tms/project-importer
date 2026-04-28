@@ -3,6 +3,7 @@ using Importer.Client.Implementations;
 using Importer.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Reflection;
 using TestIT.ApiClient.Api;
 using TestIT.ApiClient.Client;
 using TestIT.ApiClient.Model;
@@ -928,6 +929,7 @@ namespace ImporterTests
                 autoTests: new List<AutoTestModel>(),
                 attachments: new List<AttachmentModel>(),
                 links: new List<LinkModel>(),
+                parameters: new List<WorkItemParameterKeyApiResult>(),
                 externalIssues: new List<ExternalIssueApiResult>(),
                 createdDate: DateTime.UtcNow,
                 createdById: Guid.NewGuid(),
@@ -1082,6 +1084,7 @@ namespace ImporterTests
                 autoTests: new List<AutoTestModel>(),
                 attachments: new List<AttachmentModel>(),
                 links: new List<LinkModel>(),
+                parameters: new List<WorkItemParameterKeyApiResult>(),
                 externalIssues: new List<ExternalIssueApiResult>(),
                 createdDate: DateTime.UtcNow,
                 createdById: Guid.NewGuid(),
@@ -1160,6 +1163,133 @@ namespace ImporterTests
 
             Assert.That(exception!.Message, Is.EqualTo(exceptionMessage));
             _loggerMock.VerifyLogging($"Could not import test case {testCaseName}", LogLevel.Error, Times.AtLeastOnce());
+        }
+
+        [Test]
+        public async Task ImportTestCase_WhenHtmlTagsProvided_EscapesAllTagsInRequestModel()
+        {
+            // Arrange
+            var projectId = Guid.NewGuid();
+            var parentSectionId = Guid.NewGuid();
+            var testCaseId = Guid.NewGuid();
+            CreateWorkItemApiModel? postedModel = null;
+
+            var testCase = new TmsTestCase
+            {
+                Id = Guid.NewGuid(),
+                Name = "EscapingCase",
+                Description = "<b>Description</b>",
+                State = StateType.Ready,
+                Priority = PriorityType.Medium,
+                Duration = 0,
+                Steps =
+                [
+                    new Step
+                    {
+                        Action = "<div>Action</div>",
+                        Expected = "<outer><inner attr=\"v\">Expected</inner></outer>",
+                        TestData = "<span>Data</span>"
+                    }
+                ],
+                PreconditionSteps = [new Step { Action = "<p>PreAction</p>", Expected = "<i>PreExpected</i>" }],
+                PostconditionSteps = [new Step { Action = "<p>PostAction</p>", Expected = "<i>PostExpected</i>" }],
+                Attributes = [],
+                Tags = ["<tag1>"],
+                Links = [],
+                Attachments = [],
+                TmsIterations = []
+            };
+
+            var workItemResult = new WorkItemApiResult(
+                id: testCaseId,
+                globalId: 1,
+                versionId: Guid.NewGuid(),
+                versionNumber: 1,
+                projectId: projectId,
+                sectionId: parentSectionId,
+                name: testCase.Name,
+                description: "ignored",
+                sourceType: WorkItemSourceTypeApiModel.Manual,
+                entityTypeName: WorkItemEntityTypeApiModel.TestCases,
+                duration: 60000,
+                medianDuration: 0,
+                state: WorkItemStateApiModel.Ready,
+                priority: WorkItemPriorityApiModel.Medium,
+                isAutomated: false,
+                attributes: new Dictionary<string, object>(),
+                tags: new List<TagModel>(),
+                sectionPreconditionSteps: new List<StepModel>(),
+                sectionPostconditionSteps: new List<StepModel>(),
+                preconditionSteps: new List<StepModel>(),
+                steps: new List<StepModel>(),
+                postconditionSteps: new List<StepModel>(),
+                iterations: new List<IterationModel>(),
+                autoTests: new List<AutoTestModel>(),
+                attachments: new List<AttachmentModel>(),
+                links: new List<LinkModel>(),
+                parameters: new List<WorkItemParameterKeyApiResult>(),
+                externalIssues: new List<ExternalIssueApiResult>(),
+                createdDate: DateTime.UtcNow,
+                createdById: Guid.NewGuid(),
+                modifiedDate: null,
+                modifiedById: null,
+                isDeleted: false
+            );
+
+            _workItemsApiMock
+                .Setup(x => x.ApiV2WorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
+                .Callback<CreateWorkItemApiModel, CancellationToken>((m, _) => postedModel = m)
+                .ReturnsAsync(workItemResult);
+
+            // Act
+            var result = await _clientAdapter.ImportTestCase(projectId, parentSectionId, testCase);
+
+            // Assert
+            Assert.That(result, Is.True);
+            Assert.That(postedModel, Is.Not.Null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(postedModel!.Description, Does.Contain("&lt;b&gt;Description&lt;/b&gt;"));
+                Assert.That(postedModel.Steps[0].Action, Does.Contain("&lt;div&gt;Action&lt;/div&gt;"));
+                Assert.That(postedModel.Steps[0].Expected, Does.Contain("&lt;outer&gt;"));
+                Assert.That(postedModel.Steps[0].Expected, Does.Not.Contain("<outer>"));
+                Assert.That(postedModel.Steps[0].Expected, Does.Contain("&lt;inner attr="));
+                Assert.That(postedModel.Steps[0].TestData, Does.Contain("&lt;span&gt;Data&lt;/span&gt;"));
+                Assert.That(postedModel.PreconditionSteps[0].Expected, Does.Contain("&lt;i&gt;PreExpected&lt;/i&gt;"));
+                Assert.That(postedModel.PostconditionSteps[0].Expected, Does.Contain("&lt;i&gt;PostExpected&lt;/i&gt;"));
+                Assert.That(postedModel.Tags[0].Name, Does.Contain("&lt;tag1&gt;"));
+            });
+        }
+
+        [Test]
+        public void SanitizeModelStrings_WhenExternalIdentifiersProvided_DoesNotEscapeExcludedFields()
+        {
+            // Arrange
+            var method = typeof(ClientAdapter).GetMethod("SanitizeModelStrings", BindingFlags.NonPublic | BindingFlags.Static);
+            var model = new SanitizeProbeModel
+            {
+                Name = "<b>Name</b>",
+                ExternalId = "<ext-id>",
+                AutoTestExternalId = "<auto-id>",
+                Nested = new SanitizeProbeNestedModel
+                {
+                    Value = "<p>Nested</p>",
+                    ExternalId = "<nested-ext>"
+                }
+            };
+
+            // Act
+            method!.Invoke(null, [model]);
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.Name, Does.Contain("&lt;b&gt;Name&lt;/b&gt;"));
+                Assert.That(model.ExternalId, Is.EqualTo("<ext-id>"));
+                Assert.That(model.AutoTestExternalId, Is.EqualTo("<auto-id>"));
+                Assert.That(model.Nested!.Value, Does.Contain("&lt;p&gt;Nested&lt;/p&gt;"));
+                Assert.That(model.Nested.ExternalId, Is.EqualTo("<nested-ext>"));
+            });
         }
 
         #endregion
@@ -2063,5 +2193,19 @@ namespace ImporterTests
 
         #endregion
 
+    }
+
+    internal sealed class SanitizeProbeModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string ExternalId { get; set; } = string.Empty;
+        public string AutoTestExternalId { get; set; } = string.Empty;
+        public SanitizeProbeNestedModel? Nested { get; set; }
+    }
+
+    internal sealed class SanitizeProbeNestedModel
+    {
+        public string Value { get; set; } = string.Empty;
+        public string ExternalId { get; set; } = string.Empty;
     }
 }
