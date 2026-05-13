@@ -40,6 +40,17 @@ namespace ImporterTests
             _workItemsApiMock = new Mock<IWorkItemsApi>();
             _parametersApiMock = new Mock<IParametersApi>();
 
+            _appConfigMock.Setup(x => x.Value).Returns(new AppConfig
+            {
+                ResultPath = ".",
+                Tms = new TmsConfig
+                {
+                    Url = "http://localhost",
+                    PrivateToken = "t",
+                    SanitizeHtmlContent = true
+                }
+            });
+
             _adapterHelper = new AdapterHelper(_loggerMock.Object);
 
             _clientAdapter = new ClientAdapter(
@@ -1166,7 +1177,7 @@ namespace ImporterTests
         }
 
         [Test]
-        public async Task ImportTestCase_WhenHtmlTagsProvided_EscapesAllTagsInRequestModel()
+        public async Task ImportTestCase_WhenDangerousHtmlProvided_SelectivelyEscapesPerBackendRules()
         {
             // Arrange
             var projectId = Guid.NewGuid();
@@ -1178,7 +1189,7 @@ namespace ImporterTests
             {
                 Id = Guid.NewGuid(),
                 Name = "EscapingCase",
-                Description = "<b>Description</b>",
+                Description = "<script>bad</script>",
                 State = StateType.Ready,
                 Priority = PriorityType.Medium,
                 Duration = 0,
@@ -1186,15 +1197,15 @@ namespace ImporterTests
                 [
                     new Step
                     {
-                        Action = "<div>Action</div>",
-                        Expected = "<outer><inner attr=\"v\">Expected</inner></outer>",
+                        Action = "<p class=\"x\">Action</p>",
+                        Expected = "<div onclick=\"alert(1)\">Expected</div>",
                         TestData = "<span>Data</span>"
                     }
                 ],
                 PreconditionSteps = [new Step { Action = "<p>PreAction</p>", Expected = "<i>PreExpected</i>" }],
-                PostconditionSteps = [new Step { Action = "<p>PostAction</p>", Expected = "<i>PostExpected</i>" }],
+                PostconditionSteps = [new Step { Action = "<p>PostAction</p>", Expected = "<b>PostExpected</b>" }],
                 Attributes = [],
-                Tags = ["<tag1>"],
+                Tags = ["<style>x</style>"],
                 Links = [],
                 Attachments = [],
                 TmsIterations = []
@@ -1249,26 +1260,110 @@ namespace ImporterTests
             Assert.That(postedModel, Is.Not.Null);
             Assert.Multiple(() =>
             {
-                Assert.That(postedModel!.Description, Does.Contain("&lt;b&gt;Description&lt;/b&gt;"));
-                Assert.That(postedModel.Steps[0].Action, Does.Contain("&lt;div&gt;Action&lt;/div&gt;"));
-                Assert.That(postedModel.Steps[0].Expected, Does.Contain("&lt;outer&gt;"));
-                Assert.That(postedModel.Steps[0].Expected, Does.Not.Contain("<outer>"));
-                Assert.That(postedModel.Steps[0].Expected, Does.Contain("&lt;inner attr="));
-                Assert.That(postedModel.Steps[0].TestData, Does.Contain("&lt;span&gt;Data&lt;/span&gt;"));
-                Assert.That(postedModel.PreconditionSteps[0].Expected, Does.Contain("&lt;i&gt;PreExpected&lt;/i&gt;"));
-                Assert.That(postedModel.PostconditionSteps[0].Expected, Does.Contain("&lt;i&gt;PostExpected&lt;/i&gt;"));
-                Assert.That(postedModel.Tags[0].Name, Does.Contain("&lt;tag1&gt;"));
+                Assert.That(postedModel!.Description, Does.StartWith("&lt;script"));
+                Assert.That(postedModel.Steps[0].Action, Is.EqualTo("<p class=\"x\">Action</p>"));
+                Assert.That(postedModel.Steps[0].Expected, Does.StartWith("&lt;div onclick="));
+                Assert.That(postedModel.Steps[0].TestData, Is.EqualTo("<span>Data</span>"));
+                Assert.That(postedModel.PreconditionSteps[0].Action, Is.EqualTo("<p>PreAction</p>"));
+                Assert.That(postedModel.PreconditionSteps[0].Expected, Is.EqualTo("<i>PreExpected</i>"));
+                Assert.That(postedModel.PostconditionSteps[0].Expected, Is.EqualTo("<b>PostExpected</b>"));
+                Assert.That(postedModel.Tags[0].Name, Does.StartWith("&lt;style"));
             });
+        }
+
+        [Test]
+        public async Task ImportTestCase_WhenSanitizeHtmlContentDisabled_KeepsRawHtmlInRequestModel()
+        {
+            _appConfigMock.Setup(x => x.Value).Returns(new AppConfig
+            {
+                ResultPath = ".",
+                Tms = new TmsConfig
+                {
+                    Url = "http://localhost",
+                    PrivateToken = "t",
+                    SanitizeHtmlContent = false
+                }
+            });
+
+            var projectId = Guid.NewGuid();
+            var parentSectionId = Guid.NewGuid();
+            var testCaseId = Guid.NewGuid();
+            CreateWorkItemApiModel? postedModel = null;
+
+            var testCase = new TmsTestCase
+            {
+                Id = Guid.NewGuid(),
+                Name = "RawHtmlCase",
+                Description = "<script>keep</script>",
+                State = StateType.Ready,
+                Priority = PriorityType.Medium,
+                Duration = 0,
+                Steps = [new Step { Action = "a", Expected = "<div onclick=\"x\">e</div>", TestData = "" }],
+                PreconditionSteps = [],
+                PostconditionSteps = [],
+                Attributes = [],
+                Tags = [],
+                Links = [],
+                Attachments = [],
+                TmsIterations = []
+            };
+
+            var workItemResult = new WorkItemApiResult(
+                id: testCaseId,
+                globalId: 1,
+                versionId: Guid.NewGuid(),
+                versionNumber: 1,
+                projectId: projectId,
+                sectionId: parentSectionId,
+                name: testCase.Name,
+                description: "ignored",
+                sourceType: WorkItemSourceTypeApiModel.Manual,
+                entityTypeName: WorkItemEntityTypeApiModel.TestCases,
+                duration: 60000,
+                medianDuration: 0,
+                state: WorkItemStateApiModel.Ready,
+                priority: WorkItemPriorityApiModel.Medium,
+                isAutomated: false,
+                attributes: new Dictionary<string, object>(),
+                tags: new List<TagModel>(),
+                sectionPreconditionSteps: new List<StepModel>(),
+                sectionPostconditionSteps: new List<StepModel>(),
+                preconditionSteps: new List<StepModel>(),
+                steps: new List<StepModel>(),
+                postconditionSteps: new List<StepModel>(),
+                iterations: new List<IterationModel>(),
+                autoTests: new List<AutoTestModel>(),
+                attachments: new List<AttachmentModel>(),
+                links: new List<LinkModel>(),
+                parameters: new List<WorkItemParameterKeyApiResult>(),
+                externalIssues: new List<ExternalIssueApiResult>(),
+                createdDate: DateTime.UtcNow,
+                createdById: Guid.NewGuid(),
+                modifiedDate: null,
+                modifiedById: null,
+                isDeleted: false
+            );
+
+            _workItemsApiMock
+                .Setup(x => x.ApiV2WorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
+                .Callback<CreateWorkItemApiModel, CancellationToken>((m, _) => postedModel = m)
+                .ReturnsAsync(workItemResult);
+
+            await _clientAdapter.ImportTestCase(projectId, parentSectionId, testCase);
+
+            Assert.That(postedModel!.Description, Is.EqualTo("<script>keep</script>"));
+            Assert.That(postedModel.Steps[0].Expected, Is.EqualTo("<div onclick=\"x\">e</div>"));
         }
 
         [Test]
         public void SanitizeModelStrings_WhenExternalIdentifiersProvided_DoesNotEscapeExcludedFields()
         {
             // Arrange
-            var method = typeof(ClientAdapter).GetMethod("SanitizeModelStrings", BindingFlags.NonPublic | BindingFlags.Static);
+            var method = typeof(ClientAdapter).GetMethod("SanitizeModelStrings",
+                BindingFlags.NonPublic | BindingFlags.Instance);
             var model = new SanitizeProbeModel
             {
-                Name = "<b>Name</b>",
+                Name = "<script>x</script>",
                 ExternalId = "<ext-id>",
                 AutoTestExternalId = "<auto-id>",
                 Nested = new SanitizeProbeNestedModel
@@ -1279,15 +1374,15 @@ namespace ImporterTests
             };
 
             // Act
-            method!.Invoke(null, [model]);
+            method!.Invoke(_clientAdapter, [model]);
 
             // Assert
             Assert.Multiple(() =>
             {
-                Assert.That(model.Name, Does.Contain("&lt;b&gt;Name&lt;/b&gt;"));
+                Assert.That(model.Name, Does.StartWith("&lt;script"));
                 Assert.That(model.ExternalId, Is.EqualTo("<ext-id>"));
                 Assert.That(model.AutoTestExternalId, Is.EqualTo("<auto-id>"));
-                Assert.That(model.Nested!.Value, Does.Contain("&lt;p&gt;Nested&lt;/p&gt;"));
+                Assert.That(model.Nested!.Value, Is.EqualTo("<p>Nested</p>"));
                 Assert.That(model.Nested.ExternalId, Is.EqualTo("<nested-ext>"));
             });
         }
