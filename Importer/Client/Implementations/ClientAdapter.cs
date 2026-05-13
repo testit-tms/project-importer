@@ -2,10 +2,8 @@ using Importer.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections;
-using System.Net;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Text.RegularExpressions;
+using Importer.Security;
 using Models;
 using TestIT.ApiClient.Api;
 using TestIT.ApiClient.Client;
@@ -35,28 +33,30 @@ public class ClientAdapter(
         "ExternalId",
         "AutoTestExternalId"
     };
-    private static readonly Regex HtmlTagRegex = new(
-        "<[a-zA-Z!/][^<>\"']*(?:\"[^\"]*\"[^<>\"']*|'[^']*'[^<>\"']*)*>",
-        RegexOptions.Compiled);
     private static LinkType GetLinkTypeOrDefault(global::Models.LinkType type) =>
         Enum.IsDefined(typeof(global::Models.LinkType), type)
             ? Enum.Parse<LinkType>(type.ToString())
             : LinkType.Related;
-    private static string SanitizeText(string? value)
+    private string SanitizeText(string? value)
     {
         if (string.IsNullOrEmpty(value))
             return value ?? string.Empty;
 
-        return HtmlTagRegex.Replace(value, match => WebUtility.HtmlEncode(match.Value));
+        if (!appConfig.Value.Tms.SanitizeHtmlContent)
+            return value;
+
+        return HtmlContentSecuritySanitizer.SanitizeToPassValidator(value);
     }
-    private static void SanitizeModelStrings(object? model)
+
+    private void SanitizeModelStrings(object? model)
     {
-        if (model == null)
+        if (model == null || !appConfig.Value.Tms.SanitizeHtmlContent)
             return;
 
         SanitizeObject(model, new HashSet<object>(ReferenceEqualityComparer.Instance));
     }
-    private static void SanitizeObject(object model, HashSet<object> visited)
+
+    private void SanitizeObject(object model, HashSet<object> visited)
     {
         var type = model.GetType();
         if (type == typeof(string) || type.IsPrimitive || type.IsEnum || model is decimal || model is Guid || model is DateTime)

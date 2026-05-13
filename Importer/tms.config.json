@@ -5,6 +5,7 @@
     "privateToken": "XXXX",
     "certValidation": true,
     "importToExistingProject": false,
-    "timeout": 600
+    "timeout": 600,
+    "sanitizeHtmlContent": true
   }
 }

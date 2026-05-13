@@ -20,4 +20,10 @@ public class TmsConfig
     public int Timeout { get; set; }
     public string ProjectName { get; set; } = string.Empty;
     public bool ImportToExistingProject { get; set; }
+
+    /// <summary>
+    /// When true, step/description strings are adjusted so they pass Test IT HTML rules (insecure tags, event attributes, javascript: URLs).
+    /// When false, payloads are sent unchanged.
+    /// </summary>
+    public bool SanitizeHtmlContent { get; set; } = true;
 }
