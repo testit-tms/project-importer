@@ -611,6 +611,7 @@ namespace ImporterTests
 
             var attributeModel = new CustomAttributeModel(
                 id: attributeId,
+                targets: new List<string>(),
                 name: attributeName,
                 type: CustomAttributeTypesEnum.String,
                 options: new List<CustomAttributeOptionModel>(),
@@ -668,6 +669,7 @@ namespace ImporterTests
 
             var attributeModel = new CustomAttributeModel(
                 id: attributeId,
+                targets: new List<string>(),
                 name: attributeName,
                 isRequired: false,
                 isEnabled: true,
@@ -721,6 +723,7 @@ namespace ImporterTests
 
             var attributeModel = new CustomAttributeModel(
                 id: attributeId,
+                targets: new List<string>(),
                 name: attributeName,
                 isRequired: true,
                 isEnabled: true,
@@ -817,6 +820,7 @@ namespace ImporterTests
 
             var attributeModel = new CustomAttributeModel(
                 id: attributeId,
+                targets: new List<string>(),
                 name: attributeName,
                 isRequired: true,
                 isEnabled: true,
@@ -1467,6 +1471,7 @@ namespace ImporterTests
                     workItemUsage: new List<ProjectShortestModel>(),
                     testPlanUsage: new List<ProjectShortestModel>(),
                     id: attributeId,
+                    targets: new List<string>(),
                     name: attributeName,
                     isRequired: true,
                     isEnabled: true,
@@ -1642,6 +1647,7 @@ namespace ImporterTests
 
             var attributeModel = new CustomAttributeModel(
                 id: attributeId,
+                targets: new List<string>(),
                 name: attributeName,
                 isRequired: true,
                 isEnabled: true,
@@ -1772,6 +1778,7 @@ namespace ImporterTests
 
             var apiResponseAttribute = new CustomAttributeModel(
                 id: attributeId,
+                targets: new List<string>(),
                 name: attributeName,
                 isRequired: false,
                 isEnabled: true,
