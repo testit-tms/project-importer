@@ -78,9 +78,9 @@ namespace ImporterTests
             var searchedProjectName = "DifferentName";
             var projectId = Guid.NewGuid();
 
-            var projects = new List<ProjectShortModel>
+            var projects = new List<ProjectApiResult>
             {
-                new ProjectShortModel(
+                new ProjectApiResult(
                     id: projectId,
                     description: "",
                     name: customProjectName,
@@ -95,7 +95,7 @@ namespace ImporterTests
                     createdById: Guid.NewGuid(),
                     modifiedById: null,
                     globalId: 1,
-                    type: new ProjectTypeModel()
+                    type: new ProjectType()
                 )
             };
             _projectsApiMock
@@ -136,9 +136,9 @@ namespace ImporterTests
             var differentProjectName = "DifferentProject";
             var projectId = Guid.NewGuid();
 
-            var projects = new List<ProjectShortModel>
+            var projects = new List<ProjectApiResult>
             {
-                new ProjectShortModel(
+                new ProjectApiResult(
                     id: projectId,
                     description: "",
                     name: differentProjectName,
@@ -153,7 +153,7 @@ namespace ImporterTests
                     createdById: Guid.NewGuid(),
                     modifiedById: null,
                     globalId: 1,
-                    type: new ProjectTypeModel()
+                    type: new ProjectType()
                 )
             };
 
@@ -187,7 +187,7 @@ namespace ImporterTests
                     null, null, null!, null!, null!,
                     It.IsAny<ProjectsFilterModel>(),
                     It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<ProjectShortModel>());
+                .ReturnsAsync(new List<ProjectApiResult>());
 
             _appConfigMock.Setup(x => x.Value).Returns(new AppConfig
             {
@@ -208,9 +208,9 @@ namespace ImporterTests
             var projectName = "ExistingProject";
             var projectId = Guid.NewGuid();
 
-            var projects = new List<ProjectShortModel>
+            var projects = new List<ProjectApiResult>
             {
-                new ProjectShortModel(
+                new ProjectApiResult(
                     id: projectId,
                     description: "",
                     name: projectName,
@@ -225,7 +225,7 @@ namespace ImporterTests
                     createdById: Guid.NewGuid(),
                     modifiedById: null,
                     globalId: 1,
-                    type: new ProjectTypeModel()
+                    type: new ProjectType()
                 )
             };
             _projectsApiMock
@@ -257,9 +257,9 @@ namespace ImporterTests
             var projectName = "ExistingProject";
             var projectId = Guid.NewGuid();
 
-            var projects = new List<ProjectShortModel>
+            var projects = new List<ProjectApiResult>
             {
-                new ProjectShortModel(
+                new ProjectApiResult(
                     id: projectId,
                     description: "",
                     name: projectName,
@@ -274,7 +274,7 @@ namespace ImporterTests
                     createdById: Guid.NewGuid(),
                     modifiedById: null,
                     globalId: 1,
-                    type: new ProjectTypeModel()
+                    type: new ProjectType()
                 )
             };
             _projectsApiMock
@@ -341,8 +341,6 @@ namespace ImporterTests
                 description: "",
                 name: projectName,
                 isFavorite: false,
-                attributesScheme: new List<CustomAttributeApiResult>(),
-                testPlansAttributesScheme: new List<CustomAttributeApiResult>(),
                 testCasesCount: 0,
                 sharedStepsCount: 0,
                 checkListsCount: 0,
@@ -390,8 +388,6 @@ namespace ImporterTests
                 description: "",
                 name: customProjectName,
                 isFavorite: false,
-                attributesScheme: new List<CustomAttributeApiResult>(),
-                testPlansAttributesScheme: new List<CustomAttributeApiResult>(),
                 testCasesCount: 0,
                 sharedStepsCount: 0,
                 checkListsCount: 0,
