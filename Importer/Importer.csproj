@@ -21,6 +21,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Models\Models.csproj"/>
+        <ProjectReference Include="..\TestIT.AdaptersApi\TestIT.AdaptersApi.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
