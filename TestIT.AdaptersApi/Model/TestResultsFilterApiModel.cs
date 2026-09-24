@@ -39,6 +39,7 @@ namespace TestIT.AdaptersApi.Model
         /// <param name="outcomes">Specifies a test result outcomes to search for.</param>
         /// <param name="statusCodes">Specifies a test result status codes to search for.</param>
         /// <param name="statusTypes">Specifies a test result status types to search for.</param>
+        /// <param name="failureCategories">Specifies a test result failure categories to search for.</param>
         /// <param name="varNamespace">Specifies a test result namespace to search for.</param>
         /// <param name="className">Specifies a test result class name to search for.</param>
         /// <param name="autoTestGlobalIds">Specifies an autotest global IDs to search results for.</param>
@@ -47,12 +48,13 @@ namespace TestIT.AdaptersApi.Model
         /// <param name="name">Specifies an autotest name to search results for.</param>
         /// <param name="duration">Specifies a test result duration range to search for.</param>
         /// <param name="testRunIds">Specifies a test result test run IDs to search for.</param>
-        public TestResultsFilterApiModel(List<Guid> configurationIds = default, List<TestResultOutcome> outcomes = default, List<string> statusCodes = default, List<TestStatusApiType> statusTypes = default, string varNamespace = default, string className = default, List<long> autoTestGlobalIds = default, List<string> autoTestTags = default, List<string> excludeAutoTestTags = default, string name = default, Int64RangeSelectorModel duration = default, List<Guid> testRunIds = default)
+        public TestResultsFilterApiModel(List<Guid> configurationIds = default, List<TestResultOutcome> outcomes = default, List<string> statusCodes = default, List<TestStatusApiType> statusTypes = default, List<FailureCategoryModel> failureCategories = default, string varNamespace = default, string className = default, List<long> autoTestGlobalIds = default, List<string> autoTestTags = default, List<string> excludeAutoTestTags = default, string name = default, Int64RangeSelectorModel duration = default, List<Guid> testRunIds = default)
         {
             this.ConfigurationIds = configurationIds;
             this.Outcomes = outcomes;
             this.StatusCodes = statusCodes;
             this.StatusTypes = statusTypes;
+            this.FailureCategories = failureCategories;
             this.Namespace = varNamespace;
             this.ClassName = className;
             this.AutoTestGlobalIds = autoTestGlobalIds;
@@ -91,6 +93,13 @@ namespace TestIT.AdaptersApi.Model
         /// <value>Specifies a test result status types to search for</value>
         [DataMember(Name = "statusTypes", EmitDefaultValue = true)]
         public List<TestStatusApiType> StatusTypes { get; set; }
+
+        /// <summary>
+        /// Specifies a test result failure categories to search for
+        /// </summary>
+        /// <value>Specifies a test result failure categories to search for</value>
+        [DataMember(Name = "failureCategories", EmitDefaultValue = true)]
+        public List<FailureCategoryModel> FailureCategories { get; set; }
 
         /// <summary>
         /// Specifies a test result namespace to search for
@@ -160,6 +169,7 @@ namespace TestIT.AdaptersApi.Model
             sb.Append("  Outcomes: ").Append(Outcomes).Append("\n");
             sb.Append("  StatusCodes: ").Append(StatusCodes).Append("\n");
             sb.Append("  StatusTypes: ").Append(StatusTypes).Append("\n");
+            sb.Append("  FailureCategories: ").Append(FailureCategories).Append("\n");
             sb.Append("  Namespace: ").Append(Namespace).Append("\n");
             sb.Append("  ClassName: ").Append(ClassName).Append("\n");
             sb.Append("  AutoTestGlobalIds: ").Append(AutoTestGlobalIds).Append("\n");

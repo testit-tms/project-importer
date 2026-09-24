@@ -7,8 +7,6 @@ using System.Reflection;
 using TestIT.AdaptersApi.Api;
 using TestIT.AdaptersApi.Client;
 using TestIT.AdaptersApi.Model;
-using LegacyApi = TestIT.ApiClient.Api;
-using LegacyModel = TestIT.ApiClient.Model;
 
 namespace ImporterTests
 {
@@ -23,7 +21,7 @@ namespace ImporterTests
         private Mock<IProjectAttributesApi> _projectAttributesApiMock = null!;
         private Mock<IProjectSectionsApi> _projectSectionsApiMock = null!;
         private Mock<ISectionsApi> _sectionsApiMock = null!;
-        private Mock<LegacyApi.ICustomAttributesApi> _customAttributesApiMock = null!;
+        private Mock<ICustomAttributesApi> _customAttributesApiMock = null!;
         private Mock<IWorkItemsApi> _workItemsApiMock = null!;
         private Mock<IParametersApi> _parametersApiMock = null!;
         private ClientAdapter _clientAdapter = null!;
@@ -38,7 +36,7 @@ namespace ImporterTests
             _projectAttributesApiMock = new Mock<IProjectAttributesApi>();
             _projectSectionsApiMock = new Mock<IProjectSectionsApi>();
             _sectionsApiMock = new Mock<ISectionsApi>();
-            _customAttributesApiMock = new Mock<LegacyApi.ICustomAttributesApi>();
+            _customAttributesApiMock = new Mock<ICustomAttributesApi>();
             _workItemsApiMock = new Mock<IWorkItemsApi>();
             _parametersApiMock = new Mock<IParametersApi>();
 
@@ -69,6 +67,48 @@ namespace ImporterTests
                 _parametersApiMock.Object
             );
         }
+
+
+        private static CustomAttributeOptionApiResult Opt(string value = "", bool isDefault = false, Guid? id = null) =>
+            new(id: id ?? Guid.NewGuid(), isDeleted: false, value: value, isDefault: isDefault);
+
+        private static CustomAttributeApiResult Attr(
+            Guid id,
+            string name,
+            CustomAttributeType type,
+            List<CustomAttributeOptionApiResult>? options = null,
+            bool isRequired = false,
+            bool isEnabled = true,
+            bool isGlobal = false) =>
+            new(
+                id: id,
+                options: options ?? new List<CustomAttributeOptionApiResult>(),
+                type: type,
+                name: name,
+                isRequired: isRequired,
+                isEnabled: isEnabled,
+                isGlobal: isGlobal,
+                targets: new List<string>());
+
+        private static CustomAttributeSearchApiResult SearchAttr(
+            Guid id,
+            string name,
+            CustomAttributeType type,
+            List<CustomAttributeOptionApiResult>? options = null,
+            bool isRequired = false,
+            bool isEnabled = true,
+            bool isGlobal = false) =>
+            new(
+                workItemUsage: new List<ProjectShortestApiResult>(),
+                testPlanUsage: new List<ProjectShortestApiResult>(),
+                id: id,
+                options: options ?? new List<CustomAttributeOptionApiResult>(),
+                type: type,
+                name: name,
+                isRequired: isRequired,
+                isEnabled: isEnabled,
+                isGlobal: isGlobal,
+                targets: new List<string>());
 
         #region GetProject Tests
 
@@ -517,17 +557,16 @@ namespace ImporterTests
                 IsActive = true,
             };
 
-            var attributeModel = new LegacyModel.CustomAttributeModel(
+            var attributeModel = Attr(
                 id: attributeId,
                 name: attributeName,
-                type: LegacyModel.CustomAttributeTypesEnum.String,
-                options: new List<LegacyModel.CustomAttributeOptionModel>(),
+                type: CustomAttributeType.String,
                 isRequired: true,
                 isEnabled: true,
                 isGlobal: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalPostAsync(It.IsAny<LegacyModel.GlobalCustomAttributePostModel>(),
+                .Setup(x => x.AdaptersCustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostApiModel>(),
                 It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributeModel);
 
@@ -538,15 +577,15 @@ namespace ImporterTests
             Assert.Multiple(() => {
                 Assert.That(result.Id, Is.EqualTo(attributeId));
                 Assert.That(result.Name, Is.EqualTo(attributeName));
-                Assert.That(result.Type, Is.EqualTo(LegacyModel.CustomAttributeTypesEnum.String.ToString()));
+                Assert.That(result.Type, Is.EqualTo(CustomAttributeType.String.ToString()));
                 Assert.That(result.IsRequired, Is.EqualTo(true));
                 Assert.That(result.IsEnabled, Is.EqualTo(true));
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesGlobalPostAsync(
-                        It.Is<LegacyModel.GlobalCustomAttributePostModel>(m =>
+                    x => x.AdaptersCustomAttributesGlobalPostAsync(
+                        It.Is<GlobalCustomAttributePostApiModel>(m =>
                             m.Name == attributeName &&
-                            m.Type == LegacyModel.CustomAttributeTypesEnum.String &&
+                            m.Type == CustomAttributeType.String &&
                             m.IsRequired == true &&
                             m.IsEnabled == true),
                         It.IsAny<CancellationToken>()),
@@ -574,16 +613,15 @@ namespace ImporterTests
                 Options = new List<string>()
             };
 
-            var attributeModel = new LegacyModel.CustomAttributeModel(
+            var attributeModel = Attr(
                 id: attributeId,
                 name: attributeName,
+                type: CustomAttributeType.Options,
                 isRequired: false,
-                isEnabled: true,
-                type: LegacyModel.CustomAttributeTypesEnum.Options,
-                options: new List<LegacyModel.CustomAttributeOptionModel>());
+                isEnabled: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalPostAsync(It.IsAny<LegacyModel.GlobalCustomAttributePostModel>(),
+                .Setup(x => x.AdaptersCustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostApiModel>(),
                 It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributeModel);
 
@@ -594,14 +632,14 @@ namespace ImporterTests
             Assert.Multiple(() => {
                 Assert.That(result.Id, Is.EqualTo(attributeId));
                 Assert.That(result.Name, Is.EqualTo(attributeName));
-                Assert.That(result.Type, Is.EqualTo(LegacyModel.CustomAttributeTypesEnum.Options.ToString()));
+                Assert.That(result.Type, Is.EqualTo(CustomAttributeType.Options.ToString()));
                 Assert.That(result.IsRequired, Is.EqualTo(false));
                 Assert.That(result.IsEnabled, Is.EqualTo(true));
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesGlobalPostAsync(
-                        It.Is<LegacyModel.GlobalCustomAttributePostModel>(m =>
-                            m.Type == LegacyModel.CustomAttributeTypesEnum.Options &&
+                    x => x.AdaptersCustomAttributesGlobalPostAsync(
+                        It.Is<GlobalCustomAttributePostApiModel>(m =>
+                            m.Type == CustomAttributeType.Options &&
                             m.Options.Count == 1 &&
                             m.Options[0].Value == "null"),
                         It.IsAny<CancellationToken>()),
@@ -627,30 +665,21 @@ namespace ImporterTests
                 Options = new List<string> { "Red", "Green", "Blue" }
             };
 
-            var attributeModel = new LegacyModel.CustomAttributeModel(
+            var attributeModel = Attr(
                 id: attributeId,
                 name: attributeName,
-                isRequired: true,
-                isEnabled: true,
-                type: LegacyModel.CustomAttributeTypesEnum.Options,
-                options: new List<LegacyModel.CustomAttributeOptionModel>
+                type: CustomAttributeType.Options,
+                options: new List<CustomAttributeOptionApiResult>
                 {
-                    new LegacyModel.CustomAttributeOptionModel(
-                        id: Guid.NewGuid(),
-                        value: "Red",
-                        isDefault: false),
-                    new LegacyModel.CustomAttributeOptionModel(
-                        id: Guid.NewGuid(),
-                        value: "Green",
-                        isDefault: false),
-                    new LegacyModel.CustomAttributeOptionModel(
-                        id: Guid.NewGuid(),
-                        value: "Blue",
-                        isDefault: false)
-                });
+                    Opt("Red"),
+                    Opt("Green"),
+                    Opt("Blue")
+                },
+                isRequired: true,
+                isEnabled: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalPostAsync(It.IsAny<LegacyModel.GlobalCustomAttributePostModel>(),
+                .Setup(x => x.AdaptersCustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostApiModel>(),
                 It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributeModel);
 
@@ -661,7 +690,7 @@ namespace ImporterTests
             Assert.Multiple(() => {
                 Assert.That(result.Id, Is.EqualTo(attributeId));
                 Assert.That(result.Name, Is.EqualTo(attributeName));
-                Assert.That(result.Type, Is.EqualTo(LegacyModel.CustomAttributeTypesEnum.Options.ToString()));
+                Assert.That(result.Type, Is.EqualTo(CustomAttributeType.Options.ToString()));
                 Assert.That(result.IsRequired, Is.EqualTo(true));
                 Assert.That(result.IsEnabled, Is.EqualTo(true));
                 Assert.That(result.Options.Count, Is.EqualTo(3));
@@ -670,9 +699,9 @@ namespace ImporterTests
                 Assert.That(result.Options[2].Value, Is.EqualTo("Blue"));
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesGlobalPostAsync(
-                        It.Is<LegacyModel.GlobalCustomAttributePostModel>(m =>
-                            m.Type == LegacyModel.CustomAttributeTypesEnum.Options &&
+                    x => x.AdaptersCustomAttributesGlobalPostAsync(
+                        It.Is<GlobalCustomAttributePostApiModel>(m =>
+                            m.Type == CustomAttributeType.Options &&
                             m.Options.Count == 3 &&
                             m.Options[0].Value == "Red" &&
                             m.Options[1].Value == "Green" &&
@@ -701,7 +730,7 @@ namespace ImporterTests
 
             var exceptionMessage = "API Error";
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalPostAsync(It.IsAny<LegacyModel.GlobalCustomAttributePostModel>(),
+                .Setup(x => x.AdaptersCustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostApiModel>(),
                 It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
@@ -723,22 +752,16 @@ namespace ImporterTests
             var attributeId = Guid.NewGuid();
             var attributeName = "TestAttribute";
 
-            var attributeModel = new LegacyModel.CustomAttributeModel(
+            var attributeModel = Attr(
                 id: attributeId,
                 name: attributeName,
+                type: CustomAttributeType.Options,
+                options: new List<CustomAttributeOptionApiResult> { Opt("Option1") },
                 isRequired: true,
-                isEnabled: true,
-                type: LegacyModel.CustomAttributeTypesEnum.Options,
-                options: new List<LegacyModel.CustomAttributeOptionModel>
-                {
-                    new LegacyModel.CustomAttributeOptionModel(
-                        id: Guid.NewGuid(),
-                        value: "Option1",
-                        isDefault: false)
-                });
+                isEnabled: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributeModel);
 
             // Act
@@ -750,12 +773,12 @@ namespace ImporterTests
                 Assert.That(result.Name, Is.EqualTo(attributeName));
                 Assert.That(result.IsRequired, Is.True);
                 Assert.That(result.IsEnabled, Is.True);
-                Assert.That(result.Type, Is.EqualTo(LegacyModel.CustomAttributeTypesEnum.Options.ToString()));
+                Assert.That(result.Type, Is.EqualTo(CustomAttributeType.Options.ToString()));
                 Assert.That(result.Options.Count, Is.EqualTo(1));
                 Assert.That(result.Options[0].Value, Is.EqualTo("Option1"));
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()),
+                    x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()),
                     Times.Once);
 
                 _loggerMock.VerifyLogging($"Getting attribute {attributeId}", LogLevel.Information);
@@ -770,7 +793,7 @@ namespace ImporterTests
             var exceptionMessage = "API Error";
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
             // Act & Assert
@@ -1233,30 +1256,22 @@ namespace ImporterTests
             var attributeName = "TestAttribute";
             var valueOption = "Option1";
 
-            var attributes = new List<LegacyModel.CustomAttributeSearchResponseModel>
+            var attributes = new List<CustomAttributeSearchApiResult>
             {
-                new LegacyModel.CustomAttributeSearchResponseModel(
-                    workItemUsage: new List<LegacyModel.ProjectShortestModel>(),
-                    testPlanUsage: new List<LegacyModel.ProjectShortestModel>(),
+                SearchAttr(
                     id: attributeId,
                     name: attributeName,
+                    type: CustomAttributeType.Options,
+                    options: new List<CustomAttributeOptionApiResult> { Opt(valueOption) },
                     isRequired: true,
                     isEnabled: true,
-                    type: LegacyModel.CustomAttributeTypesEnum.Options,
-                    options: new List<LegacyModel.CustomAttributeOptionModel>
-                    {
-                        new LegacyModel.CustomAttributeOptionModel(
-                            id: Guid.NewGuid(),
-                            value: valueOption,
-                            isDefault: false)
-                    },
                     isGlobal: true)
             };
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesSearchPostAsync(
+                .Setup(x => x.AdaptersCustomAttributesSearchPostAsync(
                     null, null, null!, null!, null!,
-                    It.Is<LegacyModel.CustomAttributeSearchQueryModel>(q => q.IsGlobal == true && q.IsDeleted == false),
+                    It.Is<CustomAttributeSearchApiModel>(q => q.IsGlobal == true && q.IsDeleted == false),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributes);
 
@@ -1268,7 +1283,7 @@ namespace ImporterTests
                 Assert.That(result.Count, Is.EqualTo(1));
                 Assert.That(result[0].Id, Is.EqualTo(attributeId));
                 Assert.That(result[0].Name, Is.EqualTo(attributeName));
-                Assert.That(result[0].Type, Is.EqualTo(LegacyModel.CustomAttributeTypesEnum.Options.ToString()));
+                Assert.That(result[0].Type, Is.EqualTo(CustomAttributeType.Options.ToString()));
                 Assert.That(result[0].IsRequired, Is.True);
                 Assert.That(result[0].IsEnabled, Is.True);
                 Assert.That(result[0].IsGlobal, Is.True);
@@ -1276,9 +1291,9 @@ namespace ImporterTests
                 Assert.That(result[0].Options[0].Value, Is.EqualTo(valueOption));
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesSearchPostAsync(
+                    x => x.AdaptersCustomAttributesSearchPostAsync(
                         null, null, null!, null!, null!,
-                        It.Is<LegacyModel.CustomAttributeSearchQueryModel>(q => q.IsGlobal == true && q.IsDeleted == false),
+                        It.Is<CustomAttributeSearchApiModel>(q => q.IsGlobal == true && q.IsDeleted == false),
                         It.IsAny<CancellationToken>()),
                     Times.Once);
 
@@ -1293,9 +1308,9 @@ namespace ImporterTests
             var exceptionMessage = "API Error";
 
             _customAttributesApiMock
-               .Setup(x => x.ApiV2CustomAttributesSearchPostAsync(
+               .Setup(x => x.AdaptersCustomAttributesSearchPostAsync(
                    null, null, null!, null!, null!,
-                   It.Is<LegacyModel.CustomAttributeSearchQueryModel>(q => q.IsGlobal == true && q.IsDeleted == false),
+                   It.Is<CustomAttributeSearchApiModel>(q => q.IsGlobal == true && q.IsDeleted == false),
                    It.IsAny<CancellationToken>()))
                .ThrowsAsync(new Exception(exceptionMessage));
 
@@ -1416,23 +1431,17 @@ namespace ImporterTests
             var valueOption = "Option1";
             var attributeName = "TestAttribute";
 
-            var attributeModel = new LegacyModel.CustomAttributeModel(
+            var attributeModel = Attr(
                 id: attributeId,
                 name: attributeName,
+                type: CustomAttributeType.Options,
+                options: new List<CustomAttributeOptionApiResult> { Opt(valueOption, isDefault: true) },
                 isRequired: true,
                 isEnabled: true,
-                type: LegacyModel.CustomAttributeTypesEnum.Options,
-                options: new List<LegacyModel.CustomAttributeOptionModel>
-                {
-                    new LegacyModel.CustomAttributeOptionModel(
-                        id: Guid.NewGuid(),
-                        value: valueOption,
-                        isDefault: true)
-                },
                 isGlobal: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributeModel);
 
             // Act
@@ -1450,7 +1459,7 @@ namespace ImporterTests
                 Assert.That(result.Options[0].IsDefault, Is.True);
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()),
+                    x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()),
                     Times.Once);
 
                 _loggerMock.VerifyLogging($"Getting project attribute by id {attributeId}", LogLevel.Information);
@@ -1465,7 +1474,7 @@ namespace ImporterTests
             var exceptionMessage = "API Error";
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
             // Act & Assert
@@ -1546,25 +1555,22 @@ namespace ImporterTests
                 }
             };
 
-            var apiResponseAttribute = new LegacyModel.CustomAttributeModel(
+            var apiResponseAttribute = Attr(
                 id: attributeId,
                 name: attributeName,
+                type: CustomAttributeType.Options,
+                options: new List<CustomAttributeOptionApiResult>
+                {
+                    Opt(valueOption, isDefault: true, id: inputAttribute.Options[0].Id)
+                },
                 isRequired: false,
                 isEnabled: true,
-                type: LegacyModel.CustomAttributeTypesEnum.Options,
-                options: new List<LegacyModel.CustomAttributeOptionModel>
-                {
-                    new LegacyModel.CustomAttributeOptionModel(
-                        id: inputAttribute.Options[0].Id,
-                        value: valueOption,
-                        isDefault: true)
-                },
                 isGlobal: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalIdPutAsync(
+                .Setup(x => x.AdaptersCustomAttributesGlobalIdPutAsync(
                     attributeId,
-                    It.IsAny<LegacyModel.GlobalCustomAttributeUpdateModel>(),
+                    It.IsAny<GlobalCustomAttributeUpdateApiModel>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(apiResponseAttribute);
 
@@ -1582,9 +1588,9 @@ namespace ImporterTests
                 Assert.That(result.Options[0].IsDefault, Is.True);
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesGlobalIdPutAsync(
+                    x => x.AdaptersCustomAttributesGlobalIdPutAsync(
                         attributeId,
-                        It.Is<LegacyModel.GlobalCustomAttributeUpdateModel>(m =>
+                        It.Is<GlobalCustomAttributeUpdateApiModel>(m =>
                             m.Name == attributeName &&
                             m.IsEnabled == true &&
                             m.IsRequired == false &&
@@ -1611,9 +1617,9 @@ namespace ImporterTests
 
             var exceptionMessage = "API Error";
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalIdPutAsync(
+                .Setup(x => x.AdaptersCustomAttributesGlobalIdPutAsync(
                     It.IsAny<Guid>(),
-                    It.IsAny<LegacyModel.GlobalCustomAttributeUpdateModel>(),
+                    It.IsAny<GlobalCustomAttributeUpdateApiModel>(),
                     It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 

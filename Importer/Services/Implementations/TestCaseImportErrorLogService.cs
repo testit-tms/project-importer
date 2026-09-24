@@ -2,7 +2,6 @@ using System.Text;
 using Importer.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using TestIT.ApiClient.Model;
 
 namespace Importer.Services.Implementations;
 

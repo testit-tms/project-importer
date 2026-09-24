@@ -27,10 +27,10 @@ using OpenAPIDateConverter = TestIT.AdaptersApi.Client.OpenAPIDateConverter;
 namespace TestIT.AdaptersApi.Model
 {
     /// <summary>
-    /// CustomAttributeApiResult
+    /// CustomAttributeSearchApiResult
     /// </summary>
-    [DataContract(Name = "CustomAttributeApiResult")]
-    public partial class CustomAttributeApiResult : IValidatableObject
+    [DataContract(Name = "CustomAttributeSearchApiResult")]
+    public partial class CustomAttributeSearchApiResult : IValidatableObject
     {
 
         /// <summary>
@@ -40,13 +40,15 @@ namespace TestIT.AdaptersApi.Model
         [DataMember(Name = "type", IsRequired = true, EmitDefaultValue = true)]
         public CustomAttributeType Type { get; set; }
         /// <summary>
-        /// Initializes a new instance of the <see cref="CustomAttributeApiResult" /> class.
+        /// Initializes a new instance of the <see cref="CustomAttributeSearchApiResult" /> class.
         /// </summary>
         [JsonConstructorAttribute]
-        protected CustomAttributeApiResult() { }
+        protected CustomAttributeSearchApiResult() { }
         /// <summary>
-        /// Initializes a new instance of the <see cref="CustomAttributeApiResult" /> class.
+        /// Initializes a new instance of the <see cref="CustomAttributeSearchApiResult" /> class.
         /// </summary>
+        /// <param name="workItemUsage">Projects where attribute is used in work items (required).</param>
+        /// <param name="testPlanUsage">Projects where attribute is used in test plans (required).</param>
         /// <param name="id">Unique ID of the attribute (required).</param>
         /// <param name="code">Optional code identifier for the attribute.</param>
         /// <param name="options">Collection of the attribute options   Available for attributes of type &#x60;options&#x60; and &#x60;multiple options&#x60; only (required).</param>
@@ -59,13 +61,25 @@ namespace TestIT.AdaptersApi.Model
         /// <param name="isReadOnly">Indicates if the attribute is read-only (required).</param>
         /// <param name="isSystem">Indicates if the attribute is system (required).</param>
         /// <param name="targets">Collection of the attribute targets   Defines where the attribute can be used (e.g., TestCases, AutoTestCases, TestPlans) (required).</param>
-        public CustomAttributeApiResult(Guid id = default, string code = default, List<CustomAttributeOptionApiResult> options = default, CustomAttributeType type = default, bool isDeleted = default, string name = default, bool isEnabled = default, bool isRequired = default, bool isGlobal = default, bool isReadOnly = default, bool isSystem = default, List<string> targets = default)
+        public CustomAttributeSearchApiResult(List<ProjectShortestApiResult> workItemUsage = default, List<ProjectShortestApiResult> testPlanUsage = default, Guid id = default, string code = default, List<CustomAttributeOptionApiResult> options = default, CustomAttributeType type = default, bool isDeleted = default, string name = default, bool isEnabled = default, bool isRequired = default, bool isGlobal = default, bool isReadOnly = default, bool isSystem = default, List<string> targets = default)
         {
+            // to ensure "workItemUsage" is required (not null)
+            if (workItemUsage == null)
+            {
+                throw new ArgumentNullException("workItemUsage is a required property for CustomAttributeSearchApiResult and cannot be null");
+            }
+            this.WorkItemUsage = workItemUsage;
+            // to ensure "testPlanUsage" is required (not null)
+            if (testPlanUsage == null)
+            {
+                throw new ArgumentNullException("testPlanUsage is a required property for CustomAttributeSearchApiResult and cannot be null");
+            }
+            this.TestPlanUsage = testPlanUsage;
             this.Id = id;
             // to ensure "options" is required (not null)
             if (options == null)
             {
-                throw new ArgumentNullException("options is a required property for CustomAttributeApiResult and cannot be null");
+                throw new ArgumentNullException("options is a required property for CustomAttributeSearchApiResult and cannot be null");
             }
             this.Options = options;
             this.Type = type;
@@ -73,7 +87,7 @@ namespace TestIT.AdaptersApi.Model
             // to ensure "name" is required (not null)
             if (name == null)
             {
-                throw new ArgumentNullException("name is a required property for CustomAttributeApiResult and cannot be null");
+                throw new ArgumentNullException("name is a required property for CustomAttributeSearchApiResult and cannot be null");
             }
             this.Name = name;
             this.IsEnabled = isEnabled;
@@ -84,11 +98,25 @@ namespace TestIT.AdaptersApi.Model
             // to ensure "targets" is required (not null)
             if (targets == null)
             {
-                throw new ArgumentNullException("targets is a required property for CustomAttributeApiResult and cannot be null");
+                throw new ArgumentNullException("targets is a required property for CustomAttributeSearchApiResult and cannot be null");
             }
             this.Targets = targets;
             this.Code = code;
         }
+
+        /// <summary>
+        /// Projects where attribute is used in work items
+        /// </summary>
+        /// <value>Projects where attribute is used in work items</value>
+        [DataMember(Name = "workItemUsage", IsRequired = true, EmitDefaultValue = true)]
+        public List<ProjectShortestApiResult> WorkItemUsage { get; set; }
+
+        /// <summary>
+        /// Projects where attribute is used in test plans
+        /// </summary>
+        /// <value>Projects where attribute is used in test plans</value>
+        [DataMember(Name = "testPlanUsage", IsRequired = true, EmitDefaultValue = true)]
+        public List<ProjectShortestApiResult> TestPlanUsage { get; set; }
 
         /// <summary>
         /// Unique ID of the attribute
@@ -174,7 +202,9 @@ namespace TestIT.AdaptersApi.Model
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append("class CustomAttributeApiResult {\n");
+            sb.Append("class CustomAttributeSearchApiResult {\n");
+            sb.Append("  WorkItemUsage: ").Append(WorkItemUsage).Append("\n");
+            sb.Append("  TestPlanUsage: ").Append(TestPlanUsage).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Code: ").Append(Code).Append("\n");
             sb.Append("  Options: ").Append(Options).Append("\n");

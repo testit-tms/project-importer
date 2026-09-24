@@ -50,12 +50,15 @@ namespace TestIT.AdaptersApi.Model
         /// </summary>
         /// <param name="id">Test run unique identifier (required).</param>
         /// <param name="name">Test run name (required).</param>
+        /// <param name="description">Test run description.</param>
+        /// <param name="launchSource">Test run launch source              Once launch source is specified it cannot be updated..</param>
+        /// <param name="projectId">Project unique identifier              This property is used to link test run with project. (required).</param>
         /// <param name="stateName">Test run state (required).</param>
         /// <param name="status">Test run status (required).</param>
         /// <param name="attachments">Collection of attachments related to the test run (required).</param>
         /// <param name="links">Collection of links related to the test run (required).</param>
         /// <param name="tags">Collection of tags associated with the test run (required).</param>
-        public TestRunApiResult(Guid id = default, string name = default, TestRunState stateName = default, TestStatusApiResult status = default, List<AttachmentApiResult> attachments = default, List<LinkApiResult> links = default, List<string> tags = default)
+        public TestRunApiResult(Guid id = default, string name = default, string description = default, string launchSource = default, Guid projectId = default, TestRunState stateName = default, TestStatusApiResult status = default, List<AttachmentApiResult> attachments = default, List<LinkApiResult> links = default, List<string> tags = default)
         {
             this.Id = id;
             // to ensure "name" is required (not null)
@@ -64,6 +67,7 @@ namespace TestIT.AdaptersApi.Model
                 throw new ArgumentNullException("name is a required property for TestRunApiResult and cannot be null");
             }
             this.Name = name;
+            this.ProjectId = projectId;
             this.StateName = stateName;
             // to ensure "status" is required (not null)
             if (status == null)
@@ -89,6 +93,8 @@ namespace TestIT.AdaptersApi.Model
                 throw new ArgumentNullException("tags is a required property for TestRunApiResult and cannot be null");
             }
             this.Tags = tags;
+            this.Description = description;
+            this.LaunchSource = launchSource;
         }
 
         /// <summary>
@@ -104,6 +110,27 @@ namespace TestIT.AdaptersApi.Model
         /// <value>Test run name</value>
         [DataMember(Name = "name", IsRequired = true, EmitDefaultValue = true)]
         public string Name { get; set; }
+
+        /// <summary>
+        /// Test run description
+        /// </summary>
+        /// <value>Test run description</value>
+        [DataMember(Name = "description", EmitDefaultValue = true)]
+        public string Description { get; set; }
+
+        /// <summary>
+        /// Test run launch source              Once launch source is specified it cannot be updated.
+        /// </summary>
+        /// <value>Test run launch source              Once launch source is specified it cannot be updated.</value>
+        [DataMember(Name = "launchSource", EmitDefaultValue = true)]
+        public string LaunchSource { get; set; }
+
+        /// <summary>
+        /// Project unique identifier              This property is used to link test run with project.
+        /// </summary>
+        /// <value>Project unique identifier              This property is used to link test run with project.</value>
+        [DataMember(Name = "projectId", IsRequired = true, EmitDefaultValue = true)]
+        public Guid ProjectId { get; set; }
 
         /// <summary>
         /// Test run status
@@ -143,6 +170,9 @@ namespace TestIT.AdaptersApi.Model
             sb.Append("class TestRunApiResult {\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Name: ").Append(Name).Append("\n");
+            sb.Append("  Description: ").Append(Description).Append("\n");
+            sb.Append("  LaunchSource: ").Append(LaunchSource).Append("\n");
+            sb.Append("  ProjectId: ").Append(ProjectId).Append("\n");
             sb.Append("  StateName: ").Append(StateName).Append("\n");
             sb.Append("  Status: ").Append(Status).Append("\n");
             sb.Append("  Attachments: ").Append(Attachments).Append("\n");

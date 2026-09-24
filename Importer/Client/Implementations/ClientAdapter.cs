@@ -8,8 +8,6 @@ using Models;
 using TestIT.AdaptersApi.Api;
 using TestIT.AdaptersApi.Client;
 using TestIT.AdaptersApi.Model;
-using LegacyApi = TestIT.ApiClient.Api;
-using LegacyModel = TestIT.ApiClient.Model;
 using Attribute = Models.Attribute;
 using LinkType = TestIT.AdaptersApi.Model.LinkType;
 
@@ -24,7 +22,7 @@ public class ClientAdapter(
     IProjectAttributesApi projectAttributesApi,
     IProjectSectionsApi projectSectionsApi,
     ISectionsApi sectionsApi,
-    LegacyApi.ICustomAttributesApi customAttributesApi,
+    ICustomAttributesApi customAttributesApi,
     IWorkItemsApi workItemsApi,
     IParametersApi parametersApi
 ) : IClientAdapter
@@ -224,23 +222,23 @@ public class ClientAdapter(
 
         try
         {
-            var model = new LegacyModel.GlobalCustomAttributePostModel(attribute.Name)
+            var model = new GlobalCustomAttributePostApiModel(attribute.Name)
             {
-                Type = Enum.Parse<LegacyModel.CustomAttributeTypesEnum>(attribute.Type.ToString()),
+                Type = Enum.Parse<CustomAttributeType>(attribute.Type.ToString()),
                 IsRequired = attribute.IsRequired,
                 IsEnabled = attribute.IsActive,
-                Options = attribute.Options.Select(o => new LegacyModel.CustomAttributeOptionPostModel(o)).ToList()
+                Options = attribute.Options.Select(o => new CustomAttributeOptionPostApiModel(o)).ToList()
             };
             if (model.Options.Count == 0 && (
-                    model.Type == LegacyModel.CustomAttributeTypesEnum.Options
-                    || model.Type == LegacyModel.CustomAttributeTypesEnum.MultipleOptions
+                    model.Type == CustomAttributeType.Options
+                    || model.Type == CustomAttributeType.MultipleOptions
                 ))
-                model.Options.Add(new LegacyModel.CustomAttributeOptionPostModel("null"));
+                model.Options.Add(new CustomAttributeOptionPostApiModel("null"));
             SanitizeModelStrings(model);
 
             logger.LogDebug("Importing attribute {@Attribute}", model);
 
-            var resp = await customAttributesApi.ApiV2CustomAttributesGlobalPostAsync(model);
+            var resp = await customAttributesApi.AdaptersCustomAttributesGlobalPostAsync(model);
 
             logger.LogDebug("Imported attribute {@Attribute}", resp);
             logger.LogInformation("Imported attribute {Name} with id {Id}", attribute.Name, resp.Id);
@@ -273,7 +271,7 @@ public class ClientAdapter(
 
         try
         {
-            var resp = await customAttributesApi.ApiV2CustomAttributesIdGetAsync(id);
+            var resp = await customAttributesApi.AdaptersCustomAttributesIdGetAsync(id);
 
             logger.LogDebug("Got attribute {@Attribute}", resp);
 
@@ -498,8 +496,8 @@ public class ClientAdapter(
 
         try
         {
-            var attributes = await customAttributesApi.ApiV2CustomAttributesSearchPostAsync(
-                customAttributeSearchQueryModel: new LegacyModel.CustomAttributeSearchQueryModel(isGlobal: true,
+            var attributes = await customAttributesApi.AdaptersCustomAttributesSearchPostAsync(
+                customAttributeSearchApiModel: new CustomAttributeSearchApiModel(isGlobal: true,
                     isDeleted: false));
 
             logger.LogDebug("Got project attributes {@Attributes}", attributes);
@@ -583,7 +581,7 @@ public class ClientAdapter(
 
         try
         {
-            var attribute = await customAttributesApi.ApiV2CustomAttributesIdGetAsync(id);
+            var attribute = await customAttributesApi.AdaptersCustomAttributesIdGetAsync(id);
 
             var customAttribute = new TmsAttribute
             {
@@ -635,23 +633,22 @@ public class ClientAdapter(
 
         try
         {
-            var model = new LegacyModel.GlobalCustomAttributeUpdateModel(attribute.Name)
+            var model = new GlobalCustomAttributeUpdateApiModel(attribute.Name)
             {
                 IsEnabled = attribute.IsEnabled,
                 IsRequired = attribute.IsRequired,
-                Options = attribute.Options.Select(o => new LegacyModel.CustomAttributeOptionModel
-                {
-                    Id = o.Id,
-                    Value = o.Value,
-                    IsDefault = o.IsDefault
-                }).ToList()
+                Options = attribute.Options.Select(o => new CustomAttributeOptionUpdateApiModel(
+                    id: o.Id,
+                    value: o.Value,
+                    isDefault: o.IsDefault,
+                    isDeleted: false)).ToList()
             };
             SanitizeModelStrings(model);
 
             logger.LogDebug("Updating attribute {@Model}", model);
 
             var resp = await customAttributesApi
-                .ApiV2CustomAttributesGlobalIdPutAsync(attribute.Id,
+                .AdaptersCustomAttributesGlobalIdPutAsync(attribute.Id,
                     model);
 
             logger.LogDebug("Updated attribute {@Response}", resp);

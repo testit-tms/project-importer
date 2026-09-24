@@ -50,13 +50,15 @@ namespace TestIT.AdaptersApi.Model
         /// <param name="title">Name of the autotest in autotest&#39;s card.</param>
         /// <param name="description">Description of the autotest in autotest&#39;s card.</param>
         /// <param name="isFlaky">Indicates if the autotest is marked as flaky.</param>
+        /// <param name="layer">Layer of the autotest. Assigns layer by rules if omitted..</param>
+        /// <param name="resetLayer">Indicates if the autotest layer should be reset. (required).</param>
         /// <param name="steps">Collection of the autotest steps.</param>
         /// <param name="setup">Collection of the autotest setup steps.</param>
         /// <param name="teardown">Collection of the autotest teardown steps.</param>
         /// <param name="labels">Collection of the autotest labels.</param>
         /// <param name="links">Collection of the autotest links.</param>
         /// <param name="tags">Collection of the autotest tags.</param>
-        public AutoTestUpdateApiModel(Guid? id = default, Guid projectId = default, string externalId = default, string externalKey = default, string name = default, string varNamespace = default, string classname = default, string title = default, string description = default, bool? isFlaky = default, List<AutoTestStepApiModel> steps = default, List<AutoTestStepApiModel> setup = default, List<AutoTestStepApiModel> teardown = default, List<LabelApiModel> labels = default, List<LinkUpdateApiModel> links = default, List<string> tags = default)
+        public AutoTestUpdateApiModel(Guid? id = default, Guid projectId = default, string externalId = default, string externalKey = default, string name = default, string varNamespace = default, string classname = default, string title = default, string description = default, bool? isFlaky = default, LayerApiModel layer = default, bool resetLayer = default, List<AutoTestStepApiModel> steps = default, List<AutoTestStepApiModel> setup = default, List<AutoTestStepApiModel> teardown = default, List<LabelApiModel> labels = default, List<LinkUpdateApiModel> links = default, List<string> tags = default)
         {
             this.ProjectId = projectId;
             // to ensure "externalId" is required (not null)
@@ -71,6 +73,7 @@ namespace TestIT.AdaptersApi.Model
                 throw new ArgumentNullException("name is a required property for AutoTestUpdateApiModel and cannot be null");
             }
             this.Name = name;
+            this.ResetLayer = resetLayer;
             this.Id = id;
             this.ExternalKey = externalKey;
             this.Namespace = varNamespace;
@@ -78,6 +81,7 @@ namespace TestIT.AdaptersApi.Model
             this.Title = title;
             this.Description = description;
             this.IsFlaky = isFlaky;
+            this.Layer = layer;
             this.Steps = steps;
             this.Setup = setup;
             this.Teardown = teardown;
@@ -157,6 +161,20 @@ namespace TestIT.AdaptersApi.Model
         public bool? IsFlaky { get; set; }
 
         /// <summary>
+        /// Layer of the autotest. Assigns layer by rules if omitted.
+        /// </summary>
+        /// <value>Layer of the autotest. Assigns layer by rules if omitted.</value>
+        [DataMember(Name = "layer", EmitDefaultValue = true)]
+        public LayerApiModel Layer { get; set; }
+
+        /// <summary>
+        /// Indicates if the autotest layer should be reset.
+        /// </summary>
+        /// <value>Indicates if the autotest layer should be reset.</value>
+        [DataMember(Name = "resetLayer", IsRequired = true, EmitDefaultValue = true)]
+        public bool ResetLayer { get; set; }
+
+        /// <summary>
         /// Collection of the autotest steps
         /// </summary>
         /// <value>Collection of the autotest steps</value>
@@ -216,6 +234,8 @@ namespace TestIT.AdaptersApi.Model
             sb.Append("  Title: ").Append(Title).Append("\n");
             sb.Append("  Description: ").Append(Description).Append("\n");
             sb.Append("  IsFlaky: ").Append(IsFlaky).Append("\n");
+            sb.Append("  Layer: ").Append(Layer).Append("\n");
+            sb.Append("  ResetLayer: ").Append(ResetLayer).Append("\n");
             sb.Append("  Steps: ").Append(Steps).Append("\n");
             sb.Append("  Setup: ").Append(Setup).Append("\n");
             sb.Append("  Teardown: ").Append(Teardown).Append("\n");

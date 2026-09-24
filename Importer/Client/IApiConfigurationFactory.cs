@@ -1,10 +1,8 @@
-﻿using TestIT.ApiClient.Client;
-using AdaptersConfiguration = TestIT.AdaptersApi.Client.Configuration;
+﻿using TestIT.AdaptersApi.Client;
 
 namespace Importer.Client;
 
 public interface IApiConfigurationFactory
 {
     Configuration Create();
-    AdaptersConfiguration CreateAdapters();
 }
