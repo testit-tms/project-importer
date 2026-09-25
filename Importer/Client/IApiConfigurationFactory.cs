@@ -1,4 +1,4 @@
-﻿using TestIT.ApiClient.Client;
+﻿using TestIT.AdaptersApi.Client;
 
 namespace Importer.Client;
 

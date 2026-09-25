@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using TestIT.ApiClient.Model;
 
 namespace Importer.Services;
 

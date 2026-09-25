@@ -4,9 +4,9 @@ using Importer.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Reflection;
-using TestIT.ApiClient.Api;
-using TestIT.ApiClient.Client;
-using TestIT.ApiClient.Model;
+using TestIT.AdaptersApi.Api;
+using TestIT.AdaptersApi.Client;
+using TestIT.AdaptersApi.Model;
 
 namespace ImporterTests
 {
@@ -68,6 +68,48 @@ namespace ImporterTests
             );
         }
 
+
+        private static CustomAttributeOptionApiResult Opt(string value = "", bool isDefault = false, Guid? id = null) =>
+            new(id: id ?? Guid.NewGuid(), isDeleted: false, value: value, isDefault: isDefault);
+
+        private static CustomAttributeApiResult Attr(
+            Guid id,
+            string name,
+            CustomAttributeType type,
+            List<CustomAttributeOptionApiResult>? options = null,
+            bool isRequired = false,
+            bool isEnabled = true,
+            bool isGlobal = false) =>
+            new(
+                id: id,
+                options: options ?? new List<CustomAttributeOptionApiResult>(),
+                type: type,
+                name: name,
+                isRequired: isRequired,
+                isEnabled: isEnabled,
+                isGlobal: isGlobal,
+                targets: new List<string>());
+
+        private static CustomAttributeSearchApiResult SearchAttr(
+            Guid id,
+            string name,
+            CustomAttributeType type,
+            List<CustomAttributeOptionApiResult>? options = null,
+            bool isRequired = false,
+            bool isEnabled = true,
+            bool isGlobal = false) =>
+            new(
+                workItemUsage: new List<ProjectShortestApiResult>(),
+                testPlanUsage: new List<ProjectShortestApiResult>(),
+                id: id,
+                options: options ?? new List<CustomAttributeOptionApiResult>(),
+                type: type,
+                name: name,
+                isRequired: isRequired,
+                isEnabled: isEnabled,
+                isGlobal: isGlobal,
+                targets: new List<string>());
+
         #region GetProject Tests
 
         [Test]
@@ -78,28 +120,12 @@ namespace ImporterTests
             var searchedProjectName = "DifferentName";
             var projectId = Guid.NewGuid();
 
-            var projects = new List<ProjectShortModel>
+            var projects = new List<ProjectApiResult>
             {
-                new ProjectShortModel(
-                    id: projectId,
-                    description: "",
-                    name: customProjectName,
-                    isFavorite: false,
-                    testCasesCount: 0,
-                    sharedStepsCount: 0,
-                    checkListsCount: 0,
-                    autoTestsCount: 0,
-                    isDeleted: false,
-                    createdDate: DateTime.UtcNow,
-                    modifiedDate: null,
-                    createdById: Guid.NewGuid(),
-                    modifiedById: null,
-                    globalId: 1,
-                    type: new ProjectTypeModel()
-                )
+                TestProject(projectId, customProjectName)
             };
             _projectsApiMock
-                .Setup(x => x.ApiV2ProjectsSearchPostAsync(
+                .Setup(x => x.AdaptersProjectsSearchPostAsync(
                     null, null, null!, null!, null!,
                     It.Is<ProjectsFilterModel>(filter => filter.Name == customProjectName),
                     It.IsAny<CancellationToken>()))
@@ -120,7 +146,7 @@ namespace ImporterTests
             // Assert
             Assert.That(result, Is.EqualTo(projectId));
 
-            _projectsApiMock.Verify(x => x.ApiV2ProjectsSearchPostAsync(
+            _projectsApiMock.Verify(x => x.AdaptersProjectsSearchPostAsync(
                 null, null, null!, null!, null!,
                 It.Is<ProjectsFilterModel>(filter => filter.Name == customProjectName),
                 It.IsAny<CancellationToken>()), Times.Once);
@@ -136,29 +162,13 @@ namespace ImporterTests
             var differentProjectName = "DifferentProject";
             var projectId = Guid.NewGuid();
 
-            var projects = new List<ProjectShortModel>
+            var projects = new List<ProjectApiResult>
             {
-                new ProjectShortModel(
-                    id: projectId,
-                    description: "",
-                    name: differentProjectName,
-                    isFavorite: false,
-                    testCasesCount: 0,
-                    sharedStepsCount: 0,
-                    checkListsCount: 0,
-                    autoTestsCount: 0,
-                    isDeleted: false,
-                    createdDate: DateTime.UtcNow,
-                    modifiedDate: null,
-                    createdById: Guid.NewGuid(),
-                    modifiedById: null,
-                    globalId: 1,
-                    type: new ProjectTypeModel()
-                )
+                TestProject(projectId, differentProjectName)
             };
 
             _projectsApiMock
-                .Setup(x => x.ApiV2ProjectsSearchPostAsync(
+                .Setup(x => x.AdaptersProjectsSearchPostAsync(
                     null, null, null!, null!, null!,
                     It.IsAny<ProjectsFilterModel>(),
                     It.IsAny<CancellationToken>()))
@@ -183,11 +193,11 @@ namespace ImporterTests
             var searchedProjectName = "NonExistentProject";
 
             _projectsApiMock
-                .Setup(x => x.ApiV2ProjectsSearchPostAsync(
+                .Setup(x => x.AdaptersProjectsSearchPostAsync(
                     null, null, null!, null!, null!,
                     It.IsAny<ProjectsFilterModel>(),
                     It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<ProjectShortModel>());
+                .ReturnsAsync(new List<ProjectApiResult>());
 
             _appConfigMock.Setup(x => x.Value).Returns(new AppConfig
             {
@@ -208,28 +218,12 @@ namespace ImporterTests
             var projectName = "ExistingProject";
             var projectId = Guid.NewGuid();
 
-            var projects = new List<ProjectShortModel>
+            var projects = new List<ProjectApiResult>
             {
-                new ProjectShortModel(
-                    id: projectId,
-                    description: "",
-                    name: projectName,
-                    isFavorite: false,
-                    testCasesCount: 0,
-                    sharedStepsCount: 0,
-                    checkListsCount: 0,
-                    autoTestsCount: 0,
-                    isDeleted: false,
-                    createdDate: DateTime.UtcNow,
-                    modifiedDate: null,
-                    createdById: Guid.NewGuid(),
-                    modifiedById: null,
-                    globalId: 1,
-                    type: new ProjectTypeModel()
-                )
+                TestProject(projectId, projectName)
             };
             _projectsApiMock
-                .Setup(x => x.ApiV2ProjectsSearchPostAsync(
+                .Setup(x => x.AdaptersProjectsSearchPostAsync(
                     null, null, null!, null!, null!,
                     It.IsAny<ProjectsFilterModel>(),
                     It.IsAny<CancellationToken>()))
@@ -257,28 +251,12 @@ namespace ImporterTests
             var projectName = "ExistingProject";
             var projectId = Guid.NewGuid();
 
-            var projects = new List<ProjectShortModel>
+            var projects = new List<ProjectApiResult>
             {
-                new ProjectShortModel(
-                    id: projectId,
-                    description: "",
-                    name: projectName,
-                    isFavorite: false,
-                    testCasesCount: 0,
-                    sharedStepsCount: 0,
-                    checkListsCount: 0,
-                    autoTestsCount: 0,
-                    isDeleted: false,
-                    createdDate: DateTime.UtcNow,
-                    modifiedDate: null,
-                    createdById: Guid.NewGuid(),
-                    modifiedById: null,
-                    globalId: 1,
-                    type: new ProjectTypeModel()
-                )
+                TestProject(projectId, projectName)
             };
             _projectsApiMock
-                .Setup(x => x.ApiV2ProjectsSearchPostAsync(
+                .Setup(x => x.AdaptersProjectsSearchPostAsync(
                     null, null, null!, null!, null!,
                     It.IsAny<ProjectsFilterModel>(),
                     It.IsAny<CancellationToken>()))
@@ -308,7 +286,7 @@ namespace ImporterTests
             var exceptionMessage = "API Error";
 
             _projectsApiMock
-                .Setup(x => x.ApiV2ProjectsSearchPostAsync(
+                .Setup(x => x.AdaptersProjectsSearchPostAsync(
                     null, null, null!, null!, null!,
                     It.IsAny<ProjectsFilterModel>(),
                     It.IsAny<CancellationToken>()))
@@ -336,29 +314,12 @@ namespace ImporterTests
             var projectName = "TestProject";
             var projectId = Guid.NewGuid();
 
-            var projectModel = new ProjectApiResult(
-                id: projectId,
-                description: "",
-                name: projectName,
-                isFavorite: false,
-                attributesScheme: new List<CustomAttributeApiResult>(),
-                testPlansAttributesScheme: new List<CustomAttributeApiResult>(),
-                testCasesCount: 0,
-                sharedStepsCount: 0,
-                checkListsCount: 0,
-                autoTestsCount: 0,
-                isDeleted: false,
-                createdDate: DateTime.UtcNow,
-                modifiedDate: null,
-                createdById: Guid.NewGuid(),
-                modifiedById: null,
-                globalId: 1,
-                type: new ProjectType());
+            var projectModel = TestProject(projectId, projectName);
 
             _appConfigMock.Setup(x => x.Value).Returns(new AppConfig { });
 
             _projectsApiMock
-                .Setup(x => x.CreateProjectAsync(It.IsAny<CreateProjectApiModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersProjectsPostAsync(It.IsAny<CreateProjectApiModel>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(projectModel);
 
             // Act
@@ -368,7 +329,7 @@ namespace ImporterTests
             Assert.That(result, Is.EqualTo(projectId));
 
             _projectsApiMock.Verify(
-                x => x.CreateProjectAsync(
+                x => x.AdaptersProjectsPostAsync(
                     It.Is<CreateProjectApiModel>(m => m.Name == projectName),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -385,24 +346,7 @@ namespace ImporterTests
             var requestedProjectName = "DifferentName";
             var projectId = Guid.NewGuid();
 
-            var projectModel = new ProjectApiResult(
-                id: projectId,
-                description: "",
-                name: customProjectName,
-                isFavorite: false,
-                attributesScheme: new List<CustomAttributeApiResult>(),
-                testPlansAttributesScheme: new List<CustomAttributeApiResult>(),
-                testCasesCount: 0,
-                sharedStepsCount: 0,
-                checkListsCount: 0,
-                autoTestsCount: 0,
-                isDeleted: false,
-                createdDate: DateTime.UtcNow,
-                modifiedDate: null,
-                createdById: Guid.NewGuid(),
-                modifiedById: null,
-                globalId: 1,
-                type: new ProjectType());
+            var projectModel = TestProject(projectId, customProjectName);
 
             _appConfigMock.Setup(x => x.Value).Returns(new AppConfig
             {
@@ -413,7 +357,7 @@ namespace ImporterTests
             });
 
             _projectsApiMock
-                .Setup(x => x.CreateProjectAsync(It.IsAny<CreateProjectApiModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersProjectsPostAsync(It.IsAny<CreateProjectApiModel>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(projectModel);
 
             // Act
@@ -423,7 +367,7 @@ namespace ImporterTests
             Assert.That(result, Is.EqualTo(projectId));
 
             _projectsApiMock.Verify(
-                x => x.CreateProjectAsync(
+                x => x.AdaptersProjectsPostAsync(
                     It.Is<CreateProjectApiModel>(m => m.Name == customProjectName),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -439,7 +383,7 @@ namespace ImporterTests
             _appConfigMock.Setup(x => x.Value).Returns(new AppConfig { });
 
             _projectsApiMock
-                .Setup(x => x.CreateProjectAsync(It.IsAny<CreateProjectApiModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersProjectsPostAsync(It.IsAny<CreateProjectApiModel>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
             // Act & Assert
@@ -485,7 +429,7 @@ namespace ImporterTests
             );
 
             _sectionsApiMock
-                .Setup(x => x.CreateSectionAsync(It.IsAny<SectionPostModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersSectionsPostAsync(It.IsAny<SectionPostModel>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(sectionModel);
 
             // Act
@@ -495,7 +439,7 @@ namespace ImporterTests
             Assert.That(result, Is.EqualTo(sectionId));
 
             _sectionsApiMock.Verify(
-                x => x.CreateSectionAsync(
+                x => x.AdaptersSectionsPostAsync(
                     It.Is<SectionPostModel>(m =>
                         m.Name == sectionName &&
                         m.ProjectId == projectId &&
@@ -545,7 +489,7 @@ namespace ImporterTests
             );
 
             _sectionsApiMock
-                .Setup(x => x.CreateSectionAsync(It.IsAny<SectionPostModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersSectionsPostAsync(It.IsAny<SectionPostModel>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(sectionModel);
 
             // Act
@@ -555,7 +499,7 @@ namespace ImporterTests
             Assert.That(result, Is.EqualTo(sectionId));
 
             _sectionsApiMock.Verify(
-                x => x.CreateSectionAsync(
+                x => x.AdaptersSectionsPostAsync(
                     It.Is<SectionPostModel>(m =>
                         m.Name == sectionName &&
                         m.PreconditionSteps.Count == 1 &&
@@ -582,7 +526,7 @@ namespace ImporterTests
             };
 
             _sectionsApiMock
-                .Setup(x => x.CreateSectionAsync(It.IsAny<SectionPostModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersSectionsPostAsync(It.IsAny<SectionPostModel>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
             // Act & Assert
@@ -613,17 +557,16 @@ namespace ImporterTests
                 IsActive = true,
             };
 
-            var attributeModel = new CustomAttributeModel(
+            var attributeModel = Attr(
                 id: attributeId,
                 name: attributeName,
-                type: CustomAttributeTypesEnum.String,
-                options: new List<CustomAttributeOptionModel>(),
+                type: CustomAttributeType.String,
                 isRequired: true,
                 isEnabled: true,
                 isGlobal: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostModel>(),
+                .Setup(x => x.AdaptersCustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostApiModel>(),
                 It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributeModel);
 
@@ -634,15 +577,15 @@ namespace ImporterTests
             Assert.Multiple(() => {
                 Assert.That(result.Id, Is.EqualTo(attributeId));
                 Assert.That(result.Name, Is.EqualTo(attributeName));
-                Assert.That(result.Type, Is.EqualTo(CustomAttributeTypesEnum.String.ToString()));
+                Assert.That(result.Type, Is.EqualTo(CustomAttributeType.String.ToString()));
                 Assert.That(result.IsRequired, Is.EqualTo(true));
                 Assert.That(result.IsEnabled, Is.EqualTo(true));
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesGlobalPostAsync(
-                        It.Is<GlobalCustomAttributePostModel>(m =>
+                    x => x.AdaptersCustomAttributesGlobalPostAsync(
+                        It.Is<GlobalCustomAttributePostApiModel>(m =>
                             m.Name == attributeName &&
-                            m.Type == CustomAttributeTypesEnum.String &&
+                            m.Type == CustomAttributeType.String &&
                             m.IsRequired == true &&
                             m.IsEnabled == true),
                         It.IsAny<CancellationToken>()),
@@ -670,16 +613,15 @@ namespace ImporterTests
                 Options = new List<string>()
             };
 
-            var attributeModel = new CustomAttributeModel(
+            var attributeModel = Attr(
                 id: attributeId,
                 name: attributeName,
+                type: CustomAttributeType.Options,
                 isRequired: false,
-                isEnabled: true,
-                type: CustomAttributeTypesEnum.Options,
-                options: new List<CustomAttributeOptionModel>());
+                isEnabled: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostModel>(),
+                .Setup(x => x.AdaptersCustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostApiModel>(),
                 It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributeModel);
 
@@ -690,14 +632,14 @@ namespace ImporterTests
             Assert.Multiple(() => {
                 Assert.That(result.Id, Is.EqualTo(attributeId));
                 Assert.That(result.Name, Is.EqualTo(attributeName));
-                Assert.That(result.Type, Is.EqualTo(CustomAttributeTypesEnum.Options.ToString()));
+                Assert.That(result.Type, Is.EqualTo(CustomAttributeType.Options.ToString()));
                 Assert.That(result.IsRequired, Is.EqualTo(false));
                 Assert.That(result.IsEnabled, Is.EqualTo(true));
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesGlobalPostAsync(
-                        It.Is<GlobalCustomAttributePostModel>(m =>
-                            m.Type == CustomAttributeTypesEnum.Options &&
+                    x => x.AdaptersCustomAttributesGlobalPostAsync(
+                        It.Is<GlobalCustomAttributePostApiModel>(m =>
+                            m.Type == CustomAttributeType.Options &&
                             m.Options.Count == 1 &&
                             m.Options[0].Value == "null"),
                         It.IsAny<CancellationToken>()),
@@ -723,30 +665,21 @@ namespace ImporterTests
                 Options = new List<string> { "Red", "Green", "Blue" }
             };
 
-            var attributeModel = new CustomAttributeModel(
+            var attributeModel = Attr(
                 id: attributeId,
                 name: attributeName,
-                isRequired: true,
-                isEnabled: true,
-                type: CustomAttributeTypesEnum.Options,
-                options: new List<CustomAttributeOptionModel>
+                type: CustomAttributeType.Options,
+                options: new List<CustomAttributeOptionApiResult>
                 {
-                    new CustomAttributeOptionModel(
-                        id: Guid.NewGuid(),
-                        value: "Red",
-                        isDefault: false),
-                    new CustomAttributeOptionModel(
-                        id: Guid.NewGuid(),
-                        value: "Green",
-                        isDefault: false),
-                    new CustomAttributeOptionModel(
-                        id: Guid.NewGuid(),
-                        value: "Blue",
-                        isDefault: false)
-                });
+                    Opt("Red"),
+                    Opt("Green"),
+                    Opt("Blue")
+                },
+                isRequired: true,
+                isEnabled: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostModel>(),
+                .Setup(x => x.AdaptersCustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostApiModel>(),
                 It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributeModel);
 
@@ -757,7 +690,7 @@ namespace ImporterTests
             Assert.Multiple(() => {
                 Assert.That(result.Id, Is.EqualTo(attributeId));
                 Assert.That(result.Name, Is.EqualTo(attributeName));
-                Assert.That(result.Type, Is.EqualTo(CustomAttributeTypesEnum.Options.ToString()));
+                Assert.That(result.Type, Is.EqualTo(CustomAttributeType.Options.ToString()));
                 Assert.That(result.IsRequired, Is.EqualTo(true));
                 Assert.That(result.IsEnabled, Is.EqualTo(true));
                 Assert.That(result.Options.Count, Is.EqualTo(3));
@@ -766,9 +699,9 @@ namespace ImporterTests
                 Assert.That(result.Options[2].Value, Is.EqualTo("Blue"));
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesGlobalPostAsync(
-                        It.Is<GlobalCustomAttributePostModel>(m =>
-                            m.Type == CustomAttributeTypesEnum.Options &&
+                    x => x.AdaptersCustomAttributesGlobalPostAsync(
+                        It.Is<GlobalCustomAttributePostApiModel>(m =>
+                            m.Type == CustomAttributeType.Options &&
                             m.Options.Count == 3 &&
                             m.Options[0].Value == "Red" &&
                             m.Options[1].Value == "Green" &&
@@ -797,7 +730,7 @@ namespace ImporterTests
 
             var exceptionMessage = "API Error";
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostModel>(),
+                .Setup(x => x.AdaptersCustomAttributesGlobalPostAsync(It.IsAny<GlobalCustomAttributePostApiModel>(),
                 It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
@@ -819,22 +752,16 @@ namespace ImporterTests
             var attributeId = Guid.NewGuid();
             var attributeName = "TestAttribute";
 
-            var attributeModel = new CustomAttributeModel(
+            var attributeModel = Attr(
                 id: attributeId,
                 name: attributeName,
+                type: CustomAttributeType.Options,
+                options: new List<CustomAttributeOptionApiResult> { Opt("Option1") },
                 isRequired: true,
-                isEnabled: true,
-                type: CustomAttributeTypesEnum.Options,
-                options: new List<CustomAttributeOptionModel>
-                {
-                    new CustomAttributeOptionModel(
-                        id: Guid.NewGuid(),
-                        value: "Option1",
-                        isDefault: false)
-                });
+                isEnabled: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributeModel);
 
             // Act
@@ -846,12 +773,12 @@ namespace ImporterTests
                 Assert.That(result.Name, Is.EqualTo(attributeName));
                 Assert.That(result.IsRequired, Is.True);
                 Assert.That(result.IsEnabled, Is.True);
-                Assert.That(result.Type, Is.EqualTo(CustomAttributeTypesEnum.Options.ToString()));
+                Assert.That(result.Type, Is.EqualTo(CustomAttributeType.Options.ToString()));
                 Assert.That(result.Options.Count, Is.EqualTo(1));
                 Assert.That(result.Options[0].Value, Is.EqualTo("Option1"));
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()),
+                    x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()),
                     Times.Once);
 
                 _loggerMock.VerifyLogging($"Getting attribute {attributeId}", LogLevel.Information);
@@ -866,7 +793,7 @@ namespace ImporterTests
             var exceptionMessage = "API Error";
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
             // Act & Assert
@@ -913,44 +840,10 @@ namespace ImporterTests
                 Attachments = new List<string>()
             };
 
-            var workItemResult = new WorkItemApiResult(
-                id: sharedStepId,
-                globalId: 1,
-                versionId: Guid.NewGuid(),
-                versionNumber: 1,
-                projectId: projectId,
-                sectionId: parentSectionId,
-                name: sharedStepName,
-                description: "Description",
-                sourceType: WorkItemSourceTypeApiModel.Manual,
-                entityTypeName: WorkItemEntityTypeApiModel.SharedSteps,
-                duration: 0,
-                medianDuration: 0,
-                state: WorkItemStateApiModel.Ready,
-                priority: WorkItemPriorityApiModel.Medium,
-                isAutomated: false,
-                attributes: new Dictionary<string, object>(),
-                tags: new List<TagModel>(),
-                sectionPreconditionSteps: new List<StepModel>(),
-                sectionPostconditionSteps: new List<StepModel>(),
-                preconditionSteps: new List<StepModel>(),
-                steps: new List<StepModel>(),
-                postconditionSteps: new List<StepModel>(),
-                iterations: new List<IterationModel>(),
-                autoTests: new List<AutoTestModel>(),
-                attachments: new List<AttachmentModel>(),
-                links: new List<LinkModel>(),
-                parameters: new List<WorkItemParameterKeyApiResult>(),
-                externalIssues: new List<ExternalIssueApiResult>(),
-                createdDate: DateTime.UtcNow,
-                createdById: Guid.NewGuid(),
-                modifiedDate: null,
-                modifiedById: null,
-                isDeleted: false
-            );
+            var workItemResult = TestWorkItem(sharedStepId, projectId, parentSectionId, sharedStepName, WorkItemEntityTypeApiModel.SharedSteps);
 
             _workItemsApiMock
-                .Setup(x => x.ApiV2WorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersWorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(workItemResult);
 
             // Act
@@ -960,7 +853,7 @@ namespace ImporterTests
             Assert.That(result, Is.EqualTo(sharedStepId));
 
             _workItemsApiMock.Verify(
-                x => x.ApiV2WorkItemsPostAsync(
+                x => x.AdaptersWorkItemsPostAsync(
                     It.Is<CreateWorkItemApiModel>(m =>
                         m.Name == sharedStepName &&
                         m.EntityTypeName == WorkItemEntityTypeApiModel.SharedSteps &&
@@ -1001,7 +894,7 @@ namespace ImporterTests
 
             var exceptionMessage = "API Error";
             _workItemsApiMock
-                .Setup(x => x.ApiV2WorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersWorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
             // Act & Assert
@@ -1068,44 +961,10 @@ namespace ImporterTests
                 }
             };
 
-            var workItemResult = new WorkItemApiResult(
-                id: testCaseId,
-                globalId: 1,
-                versionId: Guid.NewGuid(),
-                versionNumber: 1,
-                projectId: projectId,
-                sectionId: parentSectionId,
-                name: testCaseName,
-                description: "Test Description",
-                sourceType: WorkItemSourceTypeApiModel.Manual,
-                entityTypeName: WorkItemEntityTypeApiModel.TestCases,
-                duration: 60000,
-                medianDuration: 0,
-                state: WorkItemStateApiModel.Ready,
-                priority: WorkItemPriorityApiModel.Medium,
-                isAutomated: false,
-                attributes: new Dictionary<string, object>(),
-                tags: new List<TagModel>(),
-                sectionPreconditionSteps: new List<StepModel>(),
-                sectionPostconditionSteps: new List<StepModel>(),
-                preconditionSteps: new List<StepModel>(),
-                steps: new List<StepModel>(),
-                postconditionSteps: new List<StepModel>(),
-                iterations: new List<IterationModel>(),
-                autoTests: new List<AutoTestModel>(),
-                attachments: new List<AttachmentModel>(),
-                links: new List<LinkModel>(),
-                parameters: new List<WorkItemParameterKeyApiResult>(),
-                externalIssues: new List<ExternalIssueApiResult>(),
-                createdDate: DateTime.UtcNow,
-                createdById: Guid.NewGuid(),
-                modifiedDate: null,
-                modifiedById: null,
-                isDeleted: false
-            );
+            var workItemResult = TestWorkItem(testCaseId, projectId, parentSectionId, testCase.Name, WorkItemEntityTypeApiModel.TestCases);
 
             _workItemsApiMock
-                .Setup(x => x.ApiV2WorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersWorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(workItemResult);
 
             // Act
@@ -1115,7 +974,7 @@ namespace ImporterTests
             Assert.That(result, Is.True);
 
             _workItemsApiMock.Verify(
-                x => x.ApiV2WorkItemsPostAsync(
+                x => x.AdaptersWorkItemsPostAsync(
                     It.Is<CreateWorkItemApiModel>(m =>
                         m.Name == testCaseName &&
                         m.EntityTypeName == WorkItemEntityTypeApiModel.TestCases &&
@@ -1165,7 +1024,7 @@ namespace ImporterTests
             };
 
             _workItemsApiMock
-                .Setup(x => x.ApiV2WorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersWorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
             // Act & Assert
@@ -1211,44 +1070,10 @@ namespace ImporterTests
                 TmsIterations = []
             };
 
-            var workItemResult = new WorkItemApiResult(
-                id: testCaseId,
-                globalId: 1,
-                versionId: Guid.NewGuid(),
-                versionNumber: 1,
-                projectId: projectId,
-                sectionId: parentSectionId,
-                name: testCase.Name,
-                description: "ignored",
-                sourceType: WorkItemSourceTypeApiModel.Manual,
-                entityTypeName: WorkItemEntityTypeApiModel.TestCases,
-                duration: 60000,
-                medianDuration: 0,
-                state: WorkItemStateApiModel.Ready,
-                priority: WorkItemPriorityApiModel.Medium,
-                isAutomated: false,
-                attributes: new Dictionary<string, object>(),
-                tags: new List<TagModel>(),
-                sectionPreconditionSteps: new List<StepModel>(),
-                sectionPostconditionSteps: new List<StepModel>(),
-                preconditionSteps: new List<StepModel>(),
-                steps: new List<StepModel>(),
-                postconditionSteps: new List<StepModel>(),
-                iterations: new List<IterationModel>(),
-                autoTests: new List<AutoTestModel>(),
-                attachments: new List<AttachmentModel>(),
-                links: new List<LinkModel>(),
-                parameters: new List<WorkItemParameterKeyApiResult>(),
-                externalIssues: new List<ExternalIssueApiResult>(),
-                createdDate: DateTime.UtcNow,
-                createdById: Guid.NewGuid(),
-                modifiedDate: null,
-                modifiedById: null,
-                isDeleted: false
-            );
+            var workItemResult = TestWorkItem(testCaseId, projectId, parentSectionId, testCase.Name, WorkItemEntityTypeApiModel.TestCases);
 
             _workItemsApiMock
-                .Setup(x => x.ApiV2WorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersWorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
                 .Callback<CreateWorkItemApiModel, CancellationToken>((m, _) => postedModel = m)
                 .ReturnsAsync(workItemResult);
 
@@ -1308,44 +1133,10 @@ namespace ImporterTests
                 TmsIterations = []
             };
 
-            var workItemResult = new WorkItemApiResult(
-                id: testCaseId,
-                globalId: 1,
-                versionId: Guid.NewGuid(),
-                versionNumber: 1,
-                projectId: projectId,
-                sectionId: parentSectionId,
-                name: testCase.Name,
-                description: "ignored",
-                sourceType: WorkItemSourceTypeApiModel.Manual,
-                entityTypeName: WorkItemEntityTypeApiModel.TestCases,
-                duration: 60000,
-                medianDuration: 0,
-                state: WorkItemStateApiModel.Ready,
-                priority: WorkItemPriorityApiModel.Medium,
-                isAutomated: false,
-                attributes: new Dictionary<string, object>(),
-                tags: new List<TagModel>(),
-                sectionPreconditionSteps: new List<StepModel>(),
-                sectionPostconditionSteps: new List<StepModel>(),
-                preconditionSteps: new List<StepModel>(),
-                steps: new List<StepModel>(),
-                postconditionSteps: new List<StepModel>(),
-                iterations: new List<IterationModel>(),
-                autoTests: new List<AutoTestModel>(),
-                attachments: new List<AttachmentModel>(),
-                links: new List<LinkModel>(),
-                parameters: new List<WorkItemParameterKeyApiResult>(),
-                externalIssues: new List<ExternalIssueApiResult>(),
-                createdDate: DateTime.UtcNow,
-                createdById: Guid.NewGuid(),
-                modifiedDate: null,
-                modifiedById: null,
-                isDeleted: false
-            );
+            var workItemResult = TestWorkItem(testCaseId, projectId, parentSectionId, testCase.Name, WorkItemEntityTypeApiModel.TestCases);
 
             _workItemsApiMock
-                .Setup(x => x.ApiV2WorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersWorkItemsPostAsync(It.IsAny<CreateWorkItemApiModel>(), It.IsAny<CancellationToken>()))
                 .Callback<CreateWorkItemApiModel, CancellationToken>((m, _) => postedModel = m)
                 .ReturnsAsync(workItemResult);
 
@@ -1414,7 +1205,7 @@ namespace ImporterTests
             };
 
             _projectSectionsApiMock
-                .Setup(x => x.GetSectionsByProjectIdAsync(projectId.ToString(),
+                .Setup(x => x.AdaptersProjectsProjectIdSectionsGetAsync(projectId,
                 null, null, null!, null!, null!,
                 It.IsAny<CancellationToken>()))
                 .ReturnsAsync(sections);
@@ -1426,7 +1217,7 @@ namespace ImporterTests
             Assert.That(result, Is.EqualTo(rootSectionId));
 
             _projectSectionsApiMock.Verify(
-                x => x.GetSectionsByProjectIdAsync(projectId.ToString(),
+                x => x.AdaptersProjectsProjectIdSectionsGetAsync(projectId,
                 null, null, null!, null!, null!,
                 It.IsAny<CancellationToken>()), Times.Once);
 
@@ -1441,7 +1232,7 @@ namespace ImporterTests
             var exceptionMessage = "API Error";
 
             _projectSectionsApiMock
-                .Setup(x => x.GetSectionsByProjectIdAsync(projectId.ToString(),
+                .Setup(x => x.AdaptersProjectsProjectIdSectionsGetAsync(projectId,
                 null, null, null!, null!, null!,
                 It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
@@ -1465,30 +1256,22 @@ namespace ImporterTests
             var attributeName = "TestAttribute";
             var valueOption = "Option1";
 
-            var attributes = new List<CustomAttributeSearchResponseModel>
+            var attributes = new List<CustomAttributeSearchApiResult>
             {
-                new CustomAttributeSearchResponseModel(
-                    workItemUsage: new List<ProjectShortestModel>(),
-                    testPlanUsage: new List<ProjectShortestModel>(),
+                SearchAttr(
                     id: attributeId,
                     name: attributeName,
+                    type: CustomAttributeType.Options,
+                    options: new List<CustomAttributeOptionApiResult> { Opt(valueOption) },
                     isRequired: true,
                     isEnabled: true,
-                    type: CustomAttributeTypesEnum.Options,
-                    options: new List<CustomAttributeOptionModel>
-                    {
-                        new CustomAttributeOptionModel(
-                            id: Guid.NewGuid(),
-                            value: valueOption,
-                            isDefault: false)
-                    },
                     isGlobal: true)
             };
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesSearchPostAsync(
+                .Setup(x => x.AdaptersCustomAttributesSearchPostAsync(
                     null, null, null!, null!, null!,
-                    It.Is<CustomAttributeSearchQueryModel>(q => q.IsGlobal == true && q.IsDeleted == false),
+                    It.Is<CustomAttributeSearchApiModel>(q => q.IsGlobal == true && q.IsDeleted == false),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributes);
 
@@ -1500,7 +1283,7 @@ namespace ImporterTests
                 Assert.That(result.Count, Is.EqualTo(1));
                 Assert.That(result[0].Id, Is.EqualTo(attributeId));
                 Assert.That(result[0].Name, Is.EqualTo(attributeName));
-                Assert.That(result[0].Type, Is.EqualTo(CustomAttributeTypesEnum.Options.ToString()));
+                Assert.That(result[0].Type, Is.EqualTo(CustomAttributeType.Options.ToString()));
                 Assert.That(result[0].IsRequired, Is.True);
                 Assert.That(result[0].IsEnabled, Is.True);
                 Assert.That(result[0].IsGlobal, Is.True);
@@ -1508,9 +1291,9 @@ namespace ImporterTests
                 Assert.That(result[0].Options[0].Value, Is.EqualTo(valueOption));
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesSearchPostAsync(
+                    x => x.AdaptersCustomAttributesSearchPostAsync(
                         null, null, null!, null!, null!,
-                        It.Is<CustomAttributeSearchQueryModel>(q => q.IsGlobal == true && q.IsDeleted == false),
+                        It.Is<CustomAttributeSearchApiModel>(q => q.IsGlobal == true && q.IsDeleted == false),
                         It.IsAny<CancellationToken>()),
                     Times.Once);
 
@@ -1525,9 +1308,9 @@ namespace ImporterTests
             var exceptionMessage = "API Error";
 
             _customAttributesApiMock
-               .Setup(x => x.ApiV2CustomAttributesSearchPostAsync(
+               .Setup(x => x.AdaptersCustomAttributesSearchPostAsync(
                    null, null, null!, null!, null!,
-                   It.Is<CustomAttributeSearchQueryModel>(q => q.IsGlobal == true && q.IsDeleted == false),
+                   It.Is<CustomAttributeSearchApiModel>(q => q.IsGlobal == true && q.IsDeleted == false),
                    It.IsAny<CancellationToken>()))
                .ThrowsAsync(new Exception(exceptionMessage));
 
@@ -1551,13 +1334,10 @@ namespace ImporterTests
             var valueOption = "Option1";
             var attributeName = "RequiredAttribute";
 
-            var attributes = new List<CustomAttributeGetModel>
+            var attributes = new List<CustomAttributeModel>
             {
-                new CustomAttributeGetModel(
+                new CustomAttributeModel(
                     id: attributeId,
-                    name: attributeName,
-                    isRequired: true,
-                    isEnabled: true,
                     type: CustomAttributeTypesEnum.Options,
                     options: new List<CustomAttributeOptionModel>
                     {
@@ -1566,12 +1346,19 @@ namespace ImporterTests
                             value: valueOption,
                             isDefault: false)
                     },
+                    targets: new List<string>(),
+                    isReadOnly: false,
+                    isDeleted: false,
+                    isSystem: false,
+                    name: attributeName,
+                    isEnabled: true,
+                    isRequired: true,
                     isGlobal: true)
             };
 
             _projectAttributesApiMock
-                .Setup(x => x.SearchAttributesInProjectAsync(
-                    projectId.ToString(),
+                .Setup(x => x.AdaptersProjectsProjectIdAttributesSearchPostAsync(
+                    projectId,
                     null, null, null!, null!, null!,
                     It.Is<ProjectAttributesFilterModel>(f =>
                         f.Name == "" &&
@@ -1595,8 +1382,8 @@ namespace ImporterTests
                 Assert.That(result[0].Options[0].Value, Is.EqualTo(valueOption));
 
                 _projectAttributesApiMock.Verify(
-                    x => x.SearchAttributesInProjectAsync(
-                        projectId.ToString(),
+                    x => x.AdaptersProjectsProjectIdAttributesSearchPostAsync(
+                        projectId,
                         null, null, null!, null!, null!,
                         It.Is<ProjectAttributesFilterModel>(f =>
                             f.Name == "" &&
@@ -1617,8 +1404,8 @@ namespace ImporterTests
             var exceptionMessage = "API Error";
 
             _projectAttributesApiMock
-                .Setup(x => x.SearchAttributesInProjectAsync(
-                    It.IsAny<string>(),
+                .Setup(x => x.AdaptersProjectsProjectIdAttributesSearchPostAsync(
+                    It.IsAny<Guid>(),
                     null, null, null!, null!, null!,
                     It.IsAny<ProjectAttributesFilterModel>(),
                     It.IsAny<CancellationToken>()))
@@ -1644,23 +1431,17 @@ namespace ImporterTests
             var valueOption = "Option1";
             var attributeName = "TestAttribute";
 
-            var attributeModel = new CustomAttributeModel(
+            var attributeModel = Attr(
                 id: attributeId,
                 name: attributeName,
+                type: CustomAttributeType.Options,
+                options: new List<CustomAttributeOptionApiResult> { Opt(valueOption, isDefault: true) },
                 isRequired: true,
                 isEnabled: true,
-                type: CustomAttributeTypesEnum.Options,
-                options: new List<CustomAttributeOptionModel>
-                {
-                    new CustomAttributeOptionModel(
-                        id: Guid.NewGuid(),
-                        value: valueOption,
-                        isDefault: true)
-                },
                 isGlobal: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attributeModel);
 
             // Act
@@ -1678,7 +1459,7 @@ namespace ImporterTests
                 Assert.That(result.Options[0].IsDefault, Is.True);
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()),
+                    x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()),
                     Times.Once);
 
                 _loggerMock.VerifyLogging($"Getting project attribute by id {attributeId}", LogLevel.Information);
@@ -1693,7 +1474,7 @@ namespace ImporterTests
             var exceptionMessage = "API Error";
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersCustomAttributesIdGetAsync(attributeId, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
             // Act & Assert
@@ -1716,7 +1497,7 @@ namespace ImporterTests
             var attributeIds = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() };
 
             _projectsApiMock
-                .Setup(x => x.AddGlobalAttributesToProjectAsync(projectId.ToString(), attributeIds, It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersProjectsIdAttributesGlobalPostAsync(projectId, attributeIds, It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
             // Act
@@ -1724,7 +1505,7 @@ namespace ImporterTests
 
             // Assert
             _projectsApiMock.Verify(
-                x => x.AddGlobalAttributesToProjectAsync(projectId.ToString(), attributeIds, It.IsAny<CancellationToken>()),
+                x => x.AdaptersProjectsIdAttributesGlobalPostAsync(projectId, attributeIds, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             _loggerMock.VerifyLogging("Adding attributes to project", LogLevel.Information);
@@ -1739,7 +1520,7 @@ namespace ImporterTests
             var exceptionMessage = "API Error";
 
             _projectsApiMock
-                .Setup(x => x.AddGlobalAttributesToProjectAsync(It.IsAny<string>(), It.IsAny<List<Guid>>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersProjectsIdAttributesGlobalPostAsync(It.IsAny<Guid>(), It.IsAny<List<Guid>>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
             // Act & Assert
@@ -1774,25 +1555,22 @@ namespace ImporterTests
                 }
             };
 
-            var apiResponseAttribute = new CustomAttributeModel(
+            var apiResponseAttribute = Attr(
                 id: attributeId,
                 name: attributeName,
+                type: CustomAttributeType.Options,
+                options: new List<CustomAttributeOptionApiResult>
+                {
+                    Opt(valueOption, isDefault: true, id: inputAttribute.Options[0].Id)
+                },
                 isRequired: false,
                 isEnabled: true,
-                type: CustomAttributeTypesEnum.Options,
-                options: new List<CustomAttributeOptionModel>
-                {
-                    new CustomAttributeOptionModel(
-                        id: inputAttribute.Options[0].Id,
-                        value: valueOption,
-                        isDefault: true)
-                },
                 isGlobal: true);
 
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalIdPutAsync(
+                .Setup(x => x.AdaptersCustomAttributesGlobalIdPutAsync(
                     attributeId,
-                    It.IsAny<GlobalCustomAttributeUpdateModel>(),
+                    It.IsAny<GlobalCustomAttributeUpdateApiModel>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(apiResponseAttribute);
 
@@ -1810,9 +1588,9 @@ namespace ImporterTests
                 Assert.That(result.Options[0].IsDefault, Is.True);
 
                 _customAttributesApiMock.Verify(
-                    x => x.ApiV2CustomAttributesGlobalIdPutAsync(
+                    x => x.AdaptersCustomAttributesGlobalIdPutAsync(
                         attributeId,
-                        It.Is<GlobalCustomAttributeUpdateModel>(m =>
+                        It.Is<GlobalCustomAttributeUpdateApiModel>(m =>
                             m.Name == attributeName &&
                             m.IsEnabled == true &&
                             m.IsRequired == false &&
@@ -1839,9 +1617,9 @@ namespace ImporterTests
 
             var exceptionMessage = "API Error";
             _customAttributesApiMock
-                .Setup(x => x.ApiV2CustomAttributesGlobalIdPutAsync(
+                .Setup(x => x.AdaptersCustomAttributesGlobalIdPutAsync(
                     It.IsAny<Guid>(),
-                    It.IsAny<GlobalCustomAttributeUpdateModel>(),
+                    It.IsAny<GlobalCustomAttributeUpdateApiModel>(),
                     It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
@@ -1865,6 +1643,8 @@ namespace ImporterTests
             {
                 Id = Guid.NewGuid(),
                 Name = "ProjectAttribute",
+                Type = "Options",
+                IsGlobal = true,
                 IsEnabled = true,
                 IsRequired = false,
                 Options = new List<TmsAttributeOptions>
@@ -1874,8 +1654,8 @@ namespace ImporterTests
             };
 
             _projectAttributesApiMock
-                .Setup(x => x.UpdateProjectsAttributeAsync(
-                    projectId.ToString(),
+                .Setup(x => x.AdaptersProjectsProjectIdAttributesPutAsync(
+                    projectId,
                     It.IsAny<CustomAttributePutModel>(),
                     It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
@@ -1885,8 +1665,8 @@ namespace ImporterTests
 
             // Assert
             _projectAttributesApiMock.Verify(
-                x => x.UpdateProjectsAttributeAsync(
-                    projectId.ToString(),
+                x => x.AdaptersProjectsProjectIdAttributesPutAsync(
+                    projectId,
                     It.Is<CustomAttributePutModel>(m =>
                         m.Id == attribute.Id &&
                         m.Name == attribute.Name &&
@@ -1908,6 +1688,8 @@ namespace ImporterTests
             {
                 Id = Guid.NewGuid(),
                 Name = "TestAttribute",
+                Type = "Options",
+                IsGlobal = true,
                 IsEnabled = true,
                 IsRequired = false,
                 Options = new List<TmsAttributeOptions>()
@@ -1915,8 +1697,8 @@ namespace ImporterTests
 
             var exceptionMessage = "API Error";
             _projectAttributesApiMock
-                .Setup(x => x.UpdateProjectsAttributeAsync(
-                    It.IsAny<string>(),
+                .Setup(x => x.AdaptersProjectsProjectIdAttributesPutAsync(
+                    It.IsAny<Guid>(),
                     It.IsAny<CustomAttributePutModel>(),
                     It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
@@ -1954,7 +1736,7 @@ namespace ImporterTests
             );
 
             _attachmentsApiMock
-                .Setup(x => x.ApiV2AttachmentsPostAsync(It.IsAny<FileParameter>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersAttachmentsPostAsync(It.IsAny<FileParameter>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(attachmentModel);
 
             // Act
@@ -1964,7 +1746,7 @@ namespace ImporterTests
             Assert.That(result, Is.EqualTo(attachmentId));
 
             _attachmentsApiMock.Verify(
-                x => x.ApiV2AttachmentsPostAsync(
+                x => x.AdaptersAttachmentsPostAsync(
                     It.Is<FileParameter>(fp => fp != null),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -2023,7 +1805,7 @@ namespace ImporterTests
             var exceptionMessage = "Upload failed";
 
             _attachmentsApiMock
-                .Setup(x => x.ApiV2AttachmentsPostAsync(It.IsAny<FileParameter>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersAttachmentsPostAsync(It.IsAny<FileParameter>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
             // Act & Assert
@@ -2058,16 +1840,12 @@ namespace ImporterTests
                 parameterKeyId: parameterKeyId,
                 name: parameterName,
                 value: parameterValue,
-                createdDate: DateTime.UtcNow,
-                createdById: Guid.NewGuid(),
-                modifiedDate: null,
-                modifiedById: null,
                 isDeleted: false,
                 projectIds: new List<Guid> { Guid.NewGuid() }
             );
 
             _parametersApiMock
-                .Setup(x => x.CreateParameterAsync(
+                .Setup(x => x.AdaptersParametersPostAsync(
                     It.Is<CreateParameterApiModel>(m => m.Name == parameterName && m.Value == parameterValue),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(apiResponse);
@@ -2083,7 +1861,7 @@ namespace ImporterTests
                 Assert.That(result.ParameterKeyId, Is.EqualTo(parameterKeyId));
 
                 _parametersApiMock.Verify(
-                    x => x.CreateParameterAsync(
+                    x => x.AdaptersParametersPostAsync(
                         It.Is<CreateParameterApiModel>(m => m.Name == parameterName && m.Value == parameterValue),
                         It.IsAny<CancellationToken>()),
                     Times.Once);
@@ -2111,16 +1889,12 @@ namespace ImporterTests
                 parameterKeyId: parameterKeyId,
                 name: parameterName,
                 value: "N/A",
-                createdDate: DateTime.UtcNow,
-                createdById: Guid.NewGuid(),
-                modifiedDate: null,
-                modifiedById: null,
                 isDeleted: false,
                 projectIds: new List<Guid> { Guid.NewGuid() }
             );
 
             _parametersApiMock
-                .Setup(x => x.CreateParameterAsync(
+                .Setup(x => x.AdaptersParametersPostAsync(
                     It.Is<CreateParameterApiModel>(m => m.Name == parameterName && m.Value == "N/A"),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(apiResponse);
@@ -2151,16 +1925,12 @@ namespace ImporterTests
                 parameterKeyId: parameterKeyId,
                 name: parameterName,
                 value: "N/A",
-                createdDate: DateTime.UtcNow,
-                createdById: Guid.NewGuid(),
-                modifiedDate: null,
-                modifiedById: null,
                 isDeleted: false,
                 projectIds: new List<Guid> { Guid.NewGuid() }
             );
 
             _parametersApiMock
-                .Setup(x => x.CreateParameterAsync(
+                .Setup(x => x.AdaptersParametersPostAsync(
                     It.Is<CreateParameterApiModel>(m => m.Name == parameterName && m.Value == "N/A"),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(apiResponse);
@@ -2184,7 +1954,7 @@ namespace ImporterTests
 
             var exceptionMessage = "API Error";
             _parametersApiMock
-                .Setup(x => x.CreateParameterAsync(It.IsAny<CreateParameterApiModel>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AdaptersParametersPostAsync(It.IsAny<CreateParameterApiModel>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception(exceptionMessage));
 
             // Act & Assert
@@ -2214,10 +1984,6 @@ namespace ImporterTests
                     parameterKeyId: parameterKeyId,
                     name: parameterName,
                     value: "Value1",
-                    createdDate: DateTime.UtcNow,
-                    createdById: Guid.NewGuid(),
-                    modifiedDate: null,
-                    modifiedById: null,
                     isDeleted: false,
                     projectIds: new List<Guid> { Guid.NewGuid() }
                 ),
@@ -2226,17 +1992,13 @@ namespace ImporterTests
                     parameterKeyId: parameterKeyId,
                     name: parameterName,
                     value: "Value2",
-                    createdDate: DateTime.UtcNow,
-                    createdById: Guid.NewGuid(),
-                    modifiedDate: null,
-                    modifiedById: null,
                     isDeleted: false,
                     projectIds: new List<Guid> { Guid.NewGuid() }
                 )
             };
 
             _parametersApiMock
-                .Setup(x => x.ApiV2ParametersSearchPostAsync(
+                .Setup(x => x.AdaptersParametersSearchPostAsync(
                     null, null, null!, null!, null!,
                     It.Is<ParametersFilterApiModel>(f => f.Name == parameterName && f.IsDeleted == false),
                     It.IsAny<CancellationToken>()))
@@ -2255,7 +2017,7 @@ namespace ImporterTests
                 Assert.That(result[1].Value, Is.EqualTo("Value2"));
 
                 _parametersApiMock.Verify(
-                    x => x.ApiV2ParametersSearchPostAsync(
+                    x => x.AdaptersParametersSearchPostAsync(
                         null, null, null!, null!, null!,
                         It.Is<ParametersFilterApiModel>(f => f.Name == parameterName && f.IsDeleted == false),
                         It.IsAny<CancellationToken>()),
@@ -2273,7 +2035,7 @@ namespace ImporterTests
             var exceptionMessage = "API Error";
 
             _parametersApiMock
-                .Setup(x => x.ApiV2ParametersSearchPostAsync(
+                .Setup(x => x.AdaptersParametersSearchPostAsync(
                     null, null, null!, null!, null!,
                     It.IsAny<ParametersFilterApiModel>(),
                     It.IsAny<CancellationToken>()))
@@ -2287,6 +2049,19 @@ namespace ImporterTests
         }
 
         #endregion
+
+        private static ProjectApiResult TestProject(Guid id, string name) =>
+            new(id, "", name, false, false, 1, Guid.NewGuid());
+
+        private static WorkItemApiResult TestWorkItem(
+            Guid id, Guid projectId, Guid sectionId, string name, WorkItemEntityTypeApiModel entityType) =>
+            new(id, 1, projectId, sectionId, name, "Description", entityType, 0,
+                WorkItemStateApiModel.Ready, WorkItemPriorityApiModel.Medium, false,
+                new Dictionary<string, object>(), new List<TagModel>(),
+                new List<StepModel>(), new List<StepModel>(), new List<StepModel>(),
+                new List<StepModel>(), new List<StepModel>(), new List<IterationModel>(),
+                new List<AutoTestModel>(), new List<AttachmentModel>(), new List<LinkModel>(),
+                new List<WorkItemParameterKeyApiResult>(), false);
 
     }
 
