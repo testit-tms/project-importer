@@ -1,6 +1,6 @@
 ﻿using Importer.Models;
 using Microsoft.Extensions.Options;
-using TestIT.ApiClient.Client;
+using TestIT.AdaptersApi.Client;
 
 namespace Importer.Client.Implementations;
 
@@ -11,15 +11,10 @@ public class ApiConfigurationFactory(
     public Configuration Create()
     {
         var configV = config.Value;
-        var url = configV.Tms.Url;
-        var token = configV.Tms.PrivateToken;
-        var timeout = TimeSpan.FromSeconds(configV.Tms.Timeout);
-
-        var cfg = new Configuration { BasePath = url.TrimEnd('/') };
+        var cfg = new Configuration { BasePath = configV.Tms.Url.TrimEnd('/') };
         cfg.AddApiKeyPrefix("Authorization", "PrivateToken");
-        cfg.AddApiKey("Authorization", token);
-        cfg.Timeout = timeout;
-
+        cfg.AddApiKey("Authorization", configV.Tms.PrivateToken);
+        cfg.Timeout = TimeSpan.FromSeconds(configV.Tms.Timeout);
         return cfg;
     }
 }

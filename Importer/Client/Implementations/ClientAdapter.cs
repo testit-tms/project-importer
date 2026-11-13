@@ -5,11 +5,11 @@ using System.Collections;
 using System.Reflection;
 using Importer.Security;
 using Models;
-using TestIT.ApiClient.Api;
-using TestIT.ApiClient.Client;
-using TestIT.ApiClient.Model;
+using TestIT.AdaptersApi.Api;
+using TestIT.AdaptersApi.Client;
+using TestIT.AdaptersApi.Model;
 using Attribute = Models.Attribute;
-using LinkType = TestIT.ApiClient.Model.LinkType;
+using LinkType = TestIT.AdaptersApi.Model.LinkType;
 
 namespace Importer.Client.Implementations;
 
@@ -125,7 +125,7 @@ public class ClientAdapter(
         try
         {
             var projects = await
-                projectsApi.ApiV2ProjectsSearchPostAsync(
+                projectsApi.AdaptersProjectsSearchPostAsync(
                     null, null, null!, null!, null!,
                     new ProjectsFilterModel(name));
 
@@ -164,7 +164,7 @@ public class ClientAdapter(
         {
             var model = new CreateProjectApiModel(name: name);
             SanitizeModelStrings(model);
-            var resp = await projectsApi.CreateProjectAsync(model);
+            var resp = await projectsApi.AdaptersProjectsPostAsync(model);
 
             logger.LogDebug("Created project {@Project}", resp);
             logger.LogInformation("Created project {Name} with id {Id}", name, resp.Id);
@@ -202,7 +202,7 @@ public class ClientAdapter(
 
             logger.LogDebug("Importing section {@Section}", model);
 
-            var resp = await sectionsApi.CreateSectionAsync(model);
+            var resp = await sectionsApi.AdaptersSectionsPostAsync(model);
 
             logger.LogDebug("Imported section {@Section}", resp);
             logger.LogInformation("Imported section {Name} with id {Id}", section.Name, resp.Id);
@@ -222,23 +222,23 @@ public class ClientAdapter(
 
         try
         {
-            var model = new GlobalCustomAttributePostModel(attribute.Name)
+            var model = new GlobalCustomAttributePostApiModel(attribute.Name)
             {
-                Type = Enum.Parse<CustomAttributeTypesEnum>(attribute.Type.ToString()),
+                Type = Enum.Parse<CustomAttributeType>(attribute.Type.ToString()),
                 IsRequired = attribute.IsRequired,
                 IsEnabled = attribute.IsActive,
-                Options = attribute.Options.Select(o => new CustomAttributeOptionPostModel(o)).ToList()
+                Options = attribute.Options.Select(o => new CustomAttributeOptionPostApiModel(o)).ToList()
             };
             if (model.Options.Count == 0 && (
-                    model.Type == CustomAttributeTypesEnum.Options
-                    || model.Type == CustomAttributeTypesEnum.MultipleOptions
+                    model.Type == CustomAttributeType.Options
+                    || model.Type == CustomAttributeType.MultipleOptions
                 ))
-                model.Options.Add(new CustomAttributeOptionPostModel("null"));
+                model.Options.Add(new CustomAttributeOptionPostApiModel("null"));
             SanitizeModelStrings(model);
 
             logger.LogDebug("Importing attribute {@Attribute}", model);
 
-            var resp = await customAttributesApi.ApiV2CustomAttributesGlobalPostAsync(model);
+            var resp = await customAttributesApi.AdaptersCustomAttributesGlobalPostAsync(model);
 
             logger.LogDebug("Imported attribute {@Attribute}", resp);
             logger.LogInformation("Imported attribute {Name} with id {Id}", attribute.Name, resp.Id);
@@ -271,7 +271,7 @@ public class ClientAdapter(
 
         try
         {
-            var resp = await customAttributesApi.ApiV2CustomAttributesIdGetAsync(id);
+            var resp = await customAttributesApi.AdaptersCustomAttributesIdGetAsync(id);
 
             logger.LogDebug("Got attribute {@Attribute}", resp);
 
@@ -340,7 +340,7 @@ public class ClientAdapter(
 
             logger.LogDebug("Importing shared step {Name} and {@Model}", sharedStep.Name, model);
 
-            var resp = await workItemsApi.ApiV2WorkItemsPostAsync(model);
+            var resp = await workItemsApi.AdaptersWorkItemsPostAsync(model);
 
             logger.LogDebug("Imported shared step {@SharedStep}", resp);
 
@@ -453,7 +453,7 @@ public class ClientAdapter(
             logger.LogDebug("Importing test case {Name} and {@Model}", testCase.Name, model);
 
             var response = await adapterHelper.RetryCaller(
-                async () => await workItemsApi.ApiV2WorkItemsPostAsync(model));
+                async () => await workItemsApi.AdaptersWorkItemsPostAsync(model));
 
             logger.LogDebug("Imported test case {@TestCase}", response);
 
@@ -477,7 +477,7 @@ public class ClientAdapter(
 
         try
         {
-            var section = await projectSectionsApi.GetSectionsByProjectIdAsync(projectId.ToString());
+            var section = await projectSectionsApi.AdaptersProjectsProjectIdSectionsGetAsync(projectId);
 
             logger.LogDebug("Got root section {@Section}", section.First());
 
@@ -496,8 +496,8 @@ public class ClientAdapter(
 
         try
         {
-            var attributes = await customAttributesApi.ApiV2CustomAttributesSearchPostAsync(
-                customAttributeSearchQueryModel: new CustomAttributeSearchQueryModel(isGlobal: true,
+            var attributes = await customAttributesApi.AdaptersCustomAttributesSearchPostAsync(
+                customAttributeSearchApiModel: new CustomAttributeSearchApiModel(isGlobal: true,
                     isDeleted: false));
 
             logger.LogDebug("Got project attributes {@Attributes}", attributes);
@@ -531,8 +531,8 @@ public class ClientAdapter(
 
         try
         {
-            var attributes = await projectAttributesApi.SearchAttributesInProjectAsync(
-                projectId.ToString(), projectAttributesFilterModel: new ProjectAttributesFilterModel(
+            var attributes = await projectAttributesApi.AdaptersProjectsProjectIdAttributesSearchPostAsync(
+                projectId, projectAttributesFilterModel: new ProjectAttributesFilterModel(
                     "",
                     true,
                     types: new List<CustomAttributeTypesEnum>
@@ -581,7 +581,7 @@ public class ClientAdapter(
 
         try
         {
-            var attribute = await customAttributesApi.ApiV2CustomAttributesIdGetAsync(id);
+            var attribute = await customAttributesApi.AdaptersCustomAttributesIdGetAsync(id);
 
             var customAttribute = new TmsAttribute
             {
@@ -616,7 +616,7 @@ public class ClientAdapter(
 
         try
         {
-            await projectsApi.AddGlobalAttributesToProjectAsync(projectId.ToString(),
+            await projectsApi.AdaptersProjectsIdAttributesGlobalPostAsync(projectId,
                 attributeIds.ToList());
         }
         catch (Exception e)
@@ -633,23 +633,22 @@ public class ClientAdapter(
 
         try
         {
-            var model = new GlobalCustomAttributeUpdateModel(attribute.Name)
+            var model = new GlobalCustomAttributeUpdateApiModel(attribute.Name)
             {
                 IsEnabled = attribute.IsEnabled,
                 IsRequired = attribute.IsRequired,
-                Options = attribute.Options.Select(o => new CustomAttributeOptionModel
-                {
-                    Id = o.Id,
-                    Value = o.Value,
-                    IsDefault = o.IsDefault
-                }).ToList()
+                Options = attribute.Options.Select(o => new CustomAttributeOptionUpdateApiModel(
+                    id: o.Id,
+                    value: o.Value,
+                    isDefault: o.IsDefault,
+                    isDeleted: false)).ToList()
             };
             SanitizeModelStrings(model);
 
             logger.LogDebug("Updating attribute {@Model}", model);
 
             var resp = await customAttributesApi
-                .ApiV2CustomAttributesGlobalIdPutAsync(attribute.Id,
+                .AdaptersCustomAttributesGlobalIdPutAsync(attribute.Id,
                     model);
 
             logger.LogDebug("Updated attribute {@Response}", resp);
@@ -679,23 +678,26 @@ public class ClientAdapter(
 
         try
         {
-            var model = new CustomAttributePutModel(attribute.Id, name: attribute.Name)
-            {
-                IsEnabled = attribute.IsEnabled,
-                IsRequired = attribute.IsRequired,
-                Options = attribute.Options.Select(o => new CustomAttributeOptionModel
+            var model = new CustomAttributePutModel(
+                id: attribute.Id,
+                options: attribute.Options.Select(o => new CustomAttributeOptionModel
                 {
                     Id = o.Id,
                     Value = o.Value,
                     IsDefault = o.IsDefault
-                }).ToList()
-            };
+                }).ToList(),
+                type: Enum.Parse<CustomAttributeTypesEnum>(attribute.Type),
+                isDeleted: false,
+                name: attribute.Name,
+                isEnabled: attribute.IsEnabled,
+                isRequired: attribute.IsRequired,
+                isGlobal: attribute.IsGlobal);
             SanitizeModelStrings(model);
 
             logger.LogDebug("Updating attribute {@Model}", model);
 
-            await projectAttributesApi.UpdateProjectsAttributeAsync(
-                projectId.ToString(), model);
+            await projectAttributesApi.AdaptersProjectsProjectIdAttributesPutAsync(
+                projectId, model);
         }
 
         catch (Exception e)
@@ -720,7 +722,7 @@ public class ClientAdapter(
         try
         {
             var response = await adapterHelper.RetryCaller(
-                async () => await attachmentsApi.ApiV2AttachmentsPostAsync(
+                async () => await attachmentsApi.AdaptersAttachmentsPostAsync(
                     new FileParameter(
                         Path.GetFileName(fileName),
                         content: content,
@@ -755,7 +757,7 @@ public class ClientAdapter(
 
             logger.LogDebug("Creating parameter {@Model}", model);
 
-            var resp = await parametersApi.CreateParameterAsync(model);
+            var resp = await parametersApi.AdaptersParametersPostAsync(model);
 
             logger.LogDebug("Created parameter {@Response}", resp);
 
@@ -780,7 +782,7 @@ public class ClientAdapter(
 
         try
         {
-            var resp = await parametersApi.ApiV2ParametersSearchPostAsync(
+            var resp = await parametersApi.AdaptersParametersSearchPostAsync(
                 parametersFilterApiModel:
                 new ParametersFilterApiModel(name: name, isDeleted: false));
 
@@ -828,7 +830,7 @@ public class ClientAdapter(
 
             logger.LogDebug("Importing section {@Section}", model);
 
-            var resp = await sectionsApi.CreateSectionAsync(model);
+            var resp = await sectionsApi.AdaptersSectionsPostAsync(model);
 
             logger.LogDebug("Imported section {@Section}", resp);
             logger.LogInformation("Imported section {Name} with id {Id}", section.Name, resp.Id);
